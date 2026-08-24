@@ -20,6 +20,8 @@ def root():
     }
 
 
-@app.get("/healthz")
-def healthz():
+# Named /health, not /healthz: bare /healthz never reaches the container on a
+# *.run.app hostname — it 404s upstream while every other path gets through.
+@app.get("/health")
+def health():
     return {"ok": True}
