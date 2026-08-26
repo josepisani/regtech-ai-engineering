@@ -1,0 +1,74 @@
+[1mdiff --git a/CLAUDE.md b/CLAUDE.md[m
+[1mindex 23bfb8f..8267aa1 100644[m
+[1m--- a/CLAUDE.md[m
+[1m+++ b/CLAUDE.md[m
+[36m@@ -1,13 +1,56 @@[m
+[31m-# Repo conventions[m
+[31m-[m
+[31m-Keep this repo minimal. Rules to follow (including when using Claude Code here):[m
+[31m-[m
+[31m-- **Only commit files necessary for THIS project.** No demo, example, or scratch[m
+[31m-  files in the skeleton. If something is a one-off check, run it as a command —[m
+[31m-  don't leave a file behind.[m
+[31m-- **Secrets live only in `.env`** (git-ignored). Never commit keys; never print them.[m
+[31m-- **Config comes from the environment** via `src/config.py` — don't hard-code settings.[m
+[31m-- **Python env: uv.** `uv venv` + `uv pip install -r requirements.txt`.[m
+[31m-- **Deploy target: Google Cloud Run** (`Dockerfile` + `webapp/`).[m
+[31m-- Before committing, run `git status` and confirm `.env` is not staged and no[m
+[31m-  scratch files snuck in.[m
+[32m+[m[32m# CLAUDE.md — standing context for the ai-eng-starter repo[m
+[32m+[m
+[32m+[m[32m## What this repo is[m
+[32m+[m[32mA 20-day AI-engineer portfolio sprint. The **full plan lives in the claude.ai[m
+[32m+[m[32mproject doc `claude/START-HERE.md`** — not in this repo. This file is standing[m
+[32m+[m[32mcontext only. **Never propose a new plan, roadmap, or reordering of days.**[m
+[32m+[m[32mIf asked "what should I do next," the answer is: check START-HERE in the[m
+[32m+[m[32mclaude.ai project.[m
+[32m+[m
+[32m+[m[32m## The three projects (decided 2026-08-26 — do not substitute)[m
+[32m+[m[32m1. **EU AI Act Vendor Classifier** (`src/`, Days 2–4): vendor/system description[m
+[32m+[m[32m   → validated JSON — risk tier (prohibited/high-risk/limited/minimal + GPAI),[m
+[32m+[m[32m   obligations, missing-info gaps, rationale. Tool calling + Pydantic +[m
+[32m+[m[32m   retry-on-invalid. Streamlit or FastAPI → Cloud Run.[m
+[32m+[m[32m2. **Regulatory Q&A RAG** (Days 6–9): public texts only (EU AI Act, DORA,[m
+[32m+[m[32m   AIFMD II, CSSF 18/698, ESMA CSA, SFDR) → citations at article level,[m
+[32m+[m[32m   clean refusal when the corpus lacks the answer.[m
+[32m+[m[32m3. **Delegation Oversight Agent** (Days 11–15): synthetic delegate pack →[m
+[32m+[m[32m   LangGraph agent → committee-ready review memo with cited exceptions table.[m
+[32m+[m[32m   Missing data becomes a finding, never an invention.[m
+[32m+[m
+[32m+[m[32m## Working discipline[m
+[32m+[m[32m- **Direct → review → understand → debug.** Build in pieces; the user reads and[m
+[32m+[m[32m  can explain every piece before accepting. When asked, explain code line by[m
+[32m+[m[32m  line rather than regenerating it.[m
+[32m+[m[32m- The user does 1h/day with autocomplete off; don't undermine that by dumping[m
+[32m+[m[32m  large unrequested code blocks during learning blocks.[m
+[32m+[m[32m- Work on a `dayN` branch, never directly on `main`.[m
+[32m+[m
+[32m+[m[32m## Hard rules (never violate)[m
+[32m+[m[32m- **Secrets:** only in `.env`, which is git-ignored. Never print, commit, or[m
+[32m+[m[32m  echo the API key. If `.env` shows up in `git status`, stop and fix[m
+[32m+[m[32m  `.gitignore` first.[m
+[32m+[m[32m- **No confidential or employer data — ever.** Public or synthetic data only.[m
+[32m+[m[32m  Nothing resembling a JSSFML document, template, contract, or delegate list.[m
+[32m+[m[32m- **No scratch files in commits.** `scratch_*.py` is deleted before commit.[m
+[32m+[m[32m  Only commit files the project needs.[m
+[32m+[m[32m- **Scope guard:** each project ships at its "Done when" bar (see START-HERE).[m
+[32m+[m[32m  No accounts, scrapers, n8n, or extra features — this sprint is not the SaaS.[m
+[32m+[m
+[32m+[m[32m## Environment[m
+[32m+[m[32m- Python 3.11 via `uv`; venv in `.venv` (git-ignored). After any pull:[m
+[32m+[m[32m  `uv venv --python 3.11` → activate → `uv pip install -r requirements.txt`.[m
+[32m+[m[32m- **Two machines.** Windows (day): `.venv\Scripts\activate`, `py` launcher.[m
+[32m+[m[32m  Mac (night): `source .venv/bin/activate`, `python`. GitHub is the only sync[m
+[32m+[m[32m  bridge — pull on sit-down, push before stopping. `.env` is recreated by hand[m
+[32m+[m[32m  on each machine.[m
+[32m+[m[32m- Models: experiments on `claude-haiku-4-5-20251001`; output tokens cost 5×[m
+[32m+[m[32m  input across the lineup. GCP project `gen-lang-client-0987507894`,[m
+[32m+[m[32m  region `europe-west1`, deploys to Cloud Run.[m
+[32m+[m
+[32m+[m[32m## Repo layout[m
+[32m+[m[32m- `src/` — real, committed code (e.g. `llm_probe.py`)[m
+[32m+[m[32m- `toolkit/` — reusable utilities promoted from daily work (each file needs a[m
+[32m+[m[32m  docstring: what/why/how, and must be imported by a project to stay)[m
+[32m+[m[32m- `notes/dayN.md` — daily notes, definitions, cost tables, running log[m
