@@ -1,10 +1,16 @@
-"""Streaming probe: one Claude call, measured — tokens, latency, and USD cost.
+"""llm_probe.py — streaming probe for Claude API calls.
 
-Run:  py -m src.llm_probe "your prompt here"
+Calls Claude, streams the response, and reports input/output tokens,
+time-to-first-token, total latency and real $ cost per call. Prices are in the
+PRICING table below, keyed by model id so a model switch cannot be mispriced.
 
-Why it exists: the two numbers that decide whether an LLM feature is viable are
-what it costs and how long the user waits. Both are invisible unless something
-prints them, so this prints them on every call and hands them back as a dict.
+Usage: py -m src.llm_probe "your prompt"      (also: py src/llm_probe.py "...")
+
+Note on temperature: sent only for models in TEMPERATURE_MODELS. anthropic 1.x
+removed sampling parameters from the typed method signature altogether, because
+Opus 5, Sonnet 5 and Fable 5 reject them — so passing temperature= as a keyword
+is a local TypeError, not a 400. Of the models priced below, only Haiku 4.5
+still accepts one; for the rest it is warned about and dropped, not sent.
 """
 from __future__ import annotations
 
@@ -21,7 +27,7 @@ from dotenv import load_dotenv
 # copy-pasteable into toolkit/ or another project with no repo dependency.
 load_dotenv()
 
-MODEL = "claude-sonnet-5"
+MODEL = "claude-haiku-4-5"
 
 # USD per *token*. The published $/1M figure is left visible in the arithmetic
 # so it can be checked against the pricing page without decoding a float.
