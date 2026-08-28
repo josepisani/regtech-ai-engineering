@@ -29,6 +29,8 @@ Note about using Claude Code: If you let Claude Code decide what the script shou
 - Cost paid: `stream(**params)` loses static checking. With explicit keywords, `max_token=` was a local `TypeError` before any socket opened; through `**params` a bad key travels to the server and returns as a 400. Same trade already made for `extra_body`. Two free, local failures converted into paid, remote ones — acceptable here, but it is a real trade, not a free win.
 - Verified all three paths against a fake client with no network call: temperature passes through on Haiku, is dropped with a warning on Opus 5, and stays silent when unset.
 
+- Longer output costs both — dollars and latency, because every output token is a separate forward pass. Input length affects TTFT; output length affects everything after it. Model tier multiplies both.
+
 ---
 
 WHAT SURPRISED ME (day 1 — for blog draft #1)
