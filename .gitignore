@@ -20,7 +20,14 @@ venv/
 
 # Notebooks / data scratch
 .ipynb_checkpoints/
-data/
+# data/ is ignored by default, but the Project 1 eval set is a versioned asset:
+# it is synthetic, contains nothing confidential, and Week 3's numbers are
+# meaningless without the exact descriptions and labels they were measured on.
+# Note the `data/*` form: git cannot re-include a file whose parent directory is
+# excluded, so `data/` plus a negation would silently not work.
+data/*
+!data/vendor_descriptions.jsonl
+!data/labels.jsonl
 *.sqlite
 *.db
 
