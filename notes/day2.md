@@ -205,3 +205,62 @@ Two things survive from §3 unchanged, and one gets sharper:
 The lesson to keep is the method, not the fact: the fact will change again by
 Day 11. Read the installed library, not only the documentation — the library is
 what actually runs.
+
+---
+
+## Handoff — end of Day 2 build session, 2026-08-31 (Mac)
+
+**Branch:** `day2`, cut from `main` after `day1` was merged in.
+**`main` is 6 commits ahead of `origin/main` and `day2` has never been pushed.**
+Neither can be pushed from the assistant's sandbox (no git credentials there), so
+push both by hand:
+
+    git push origin main
+    git push origin day2 -u
+
+**Done**
+
+- `notes/day2.md` — the four concepts, plus the addendum correcting §3 against
+  the installed SDK.
+- `notes/project1-spec.md` — Project 1 spec v1. Four decisions taken: five-value
+  tier with `insufficient_information`, three-level confidence enum, `our_role`
+  required, obligations derived in Python.
+- `toolkit/structured.py` — the day's toolkit promotion. Imported by
+  `src/aiact/classify.py` and by the description generator, so it has earned its
+  place under the toolkit rule.
+- `src/aiact/{schema,obligations,classify}.py` — the classifier core.
+- `data/vendor_descriptions.jsonl` — 20 synthetic descriptions, unlabelled.
+- `data/project1_labels.xlsx` — the labelling workbook (git-ignored; the
+  committed artefact is `data/labels.jsonl`, once it exists).
+
+**Gate — both items met**
+
+1. 20/20 schema-conformant, every one on the first attempt, no truncation and no
+   refusal. $0.096 total on Haiku 4.5, median 4.1s per call.
+2. All four deliberately under-specified descriptions returned
+   `insufficient_information` with populated gaps and `low` confidence — no
+   invented tier.
+
+Accuracy is deliberately NOT in the gate. It cannot be measured until the labels
+exist, and pretending otherwise is how confident nonsense ships.
+
+**One defect found and fixed during the first real run.** The obligations lookup
+was keyed on `(tier, role)` alone, which handed a chatbot deployer the Article
+50(3) emotion-recognition and 50(4) deepfake duties — neither applies to a
+question-answering bot. Article 50 attaches per paragraph, not per role. The
+lookup is now keyed on the paragraph the classifier cited, with an explicit
+"could not be narrowed" line when no paragraph was cited. Worth remembering that
+the wrong answer came from the hand-written Python, not from the model.
+
+**Next (Day 2 remainder)**
+
+1. Label the 20 descriptions in `data/project1_labels.xlsx`. Do it before
+   looking at any model output — the predictions exist and are being held back
+   deliberately.
+2. Convert the sheet to `data/labels.jsonl` and commit it.
+3. Then, and only then, compare. The disagreements are Day 3's edge-case tests
+   and the seed of the Week 3 error analysis.
+
+**Open item carried into Day 4:** confirm on EUR-Lex whether the Digital Omnibus
+is formally adopted and published. `RULESET_VERSION` and the dates in
+`obligations.py` assume the post-Omnibus timeline.
