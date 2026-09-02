@@ -162,3 +162,179 @@ Stored as `data/vendor_descriptions.jsonl` (the text) and `data/labels.jsonl` (y
 3. `toolkit/structured.py` is imported by the classifier, not merely written.
 
 *Not in the gate: accuracy. That is Week 3, and pretending otherwise on Day 2 is how people ship confident nonsense.*
+
+---
+
+## 10. Deployment constraints — the corporate perimeter (added 2026-09-02)
+
+The demo runs on Cloud Run and calls the Anthropic API. That is correct for the
+portfolio and wrong for the actual user, and the spec should say so rather than
+discover it in a meeting.
+
+### 10.1 The constraint
+
+Most Luxembourg banks and financial entities run URL filtering and DLP on
+outbound traffic, and commonly block pages with embedded AI outright. Two
+separate failures follow, and they need separate answers:
+
+1. **The site is unreachable.** A `*.run.app` hostname is a shared Google
+   domain that filtering products routinely bucket as uncategorised or
+   cloud-hosting. The user sees a block page.
+2. **Even if reachable, the paste is blocked.** DLP inspects what leaves the
+   network. A vendor's public product page is marketing text and is probably
+   fine; a DDQ answer is internal and probably is not.
+
+### 10.2 Who is actually affected
+
+| Audience | Affected? | Consequence |
+|---|---|---|
+| Hiring managers, recruiters | No — phone or personal laptop | The demo works. The ten-second test stands. |
+| A contact you show it to at their desk | **Yes** | They see a block page and you learn nothing |
+| A real ManCo user | **Yes** | The hosted demo is not a usable product for them |
+
+This does not invalidate Project 1 — §2 of START-HERE already decided not to
+launch the SaaS. It invalidates the assumption that the deployed demo doubles as
+a product, and it changes how Day 4's "show it to one person in your network"
+step has to be run.
+
+### 10.3 Mitigations that are in scope
+
+- **Map a custom domain** to the Cloud Run service. Does not defeat DLP; does
+  get the URL out of the worst filtering category, and reads better on a CV.
+- **Record a 20–30 second screen capture** of a real classification and put it
+  in the README. Someone on a locked-down laptop can watch it when they cannot
+  reach the app. Highest value per minute on this list.
+- **Put a worked example in the README as static text** — input description,
+  output record — so the tool can be understood with nothing executed.
+
+### 10.4 The architecture answer — and why ours already survives it
+
+**The realistic deployment target is the firm's own model.** Banks and financial
+entities in this market generally do run AI internally: open-weight models,
+self-hosted, heavily guard-railed. So the integration question is not "will they
+let you call Anthropic" — the answer is no — it is **"can this run against our
+internal model endpoint?"**
+
+Four layers, weakest to strongest:
+
+1. Custom domain, EU hosting.
+2. **Deploy inside the perimeter.** It is a container. The only remaining
+   egress is the model call.
+3. **Keep the model call in the EU** — e.g. Vertex AI in `europe-west1`. This is
+   a data-residency argument for the Gemini work, separate from the
+   multi-provider credibility argument.
+4. **Call their internal model.** Self-hosted open-weight model behind an
+   OpenAI-compatible endpoint (vLLM, Ollama, LiteLLM are the usual shapes).
+   Zero egress. This is the one that actually matches how these firms operate.
+
+**Two design decisions already made pay off here, and neither was made for this
+reason:**
+
+- **Obligations are a Python dict, not model output.** Swap to a weaker model
+  and the obligation list does not degrade at all, because no model ever
+  generated it. Accuracy of the *tier* drops; the citations cannot rot.
+- **`toolkit/structured.py` wraps call → check `stop_reason` → validate →
+  retry-with-error → raise.** Against Anthropic that wrapper is partly
+  redundant, because `messages.parse` enforces conformance with a grammar. A
+  self-hosted open-weight model behind a plain endpoint has **no such
+  guarantee** — there the validate-and-retry loop is the only thing standing
+  between the app and malformed JSON. The portability argument for building the
+  wrapper was speculative on Day 2. This is the concrete case that justifies it.
+
+**What does degrade:** classification accuracy on a smaller model, by an unknown
+amount. That is measurable, and measuring it is a Week 3 job — running the
+labelled set against a second, weaker model gives a real number for "what does
+it cost you to keep this inside your own walls". That comparison is a portfolio
+asset in its own right.
+
+### 10.5 What to write in the README
+
+One short section, honestly worded: the hosted demo is for evaluation; the
+deployment path for a regulated firm is in-perimeter with the firm's own model;
+the classification core is provider-agnostic by construction and the obligation
+lookup does not depend on the model at all.
+
+---
+
+## 11. Output contract v2 — the gates (2026-09-02)
+
+§2 above describes contract v1. This section supersedes it. `RULESET_VERSION` is
+now `v2-2026-09-02-reg-2024-1689-consolidated-20260727`.
+
+**What changed and why:** v1 asked the model for one judgement — the tier. The
+Act does not work that way. It is a sequence of gates, each of which can end the
+analysis, and v1 had no field for four of them. Every gap below produced a
+confidently wrong answer in a case a ManCo actually meets.
+
+| Gate | Article | Field | Type |
+|---|---|---|---|
+| 1. Does the Act apply? | Art. 2 | `act_applies` | `applies` / `excluded` / `unclear` |
+| | | `exclusion_ground` | 5 grounds + `none` |
+| 2. Stated role | Art. 3 | `our_role` | unchanged |
+| 3. Escalated role? | Art. 25 | `art25_trigger` | 3 triggers + `none` / `unclear` |
+| 4. Tier | Arts. 5, 6 | `risk_tier` | unchanged |
+| 5. Derogated? | Art. 6(3) | `annex_iii_derogation` | 4 limbs + `none` |
+| 6. Profiling override | Art. 6(3) final subpara | `performs_profiling` | bool |
+
+Derived in Python, never by the model:
+
+- **`effective_role`** — `Classification.derive_effective_role()` applies
+  Art. 25(1). Deliberately narrow: escalation only on the high-risk path,
+  because all three Art. 25(1) triggers are tied to high-risk systems. The
+  stated role is kept in `our_role` and never overwritten, so the delta is
+  auditable and Day 13 can score "did it spot the escalation" separately from
+  "did it get the role right".
+- **`obligations`** — `obligations_for()` now applies the gates in the Act's
+  order and each can end the function: Art. 2 scope → Art. 6(3)/(4) derogation →
+  the tier table → an Art. 25 note explaining why the role changed.
+
+### Three distinctions the schema now keeps apart
+
+1. **`excluded` vs `insufficient_information`.** "The Act does not reach this"
+   and "we cannot tell what this is" are different findings. v1 collapsed the
+   first into `minimal_risk`, which is a stronger claim than either.
+2. **A carve-out vs a derogation.** Both end in "not high-risk". A **carve-out**
+   is written into the Annex III entry — Annex III 5(b) excepts *"AI systems
+   used for the purpose of detecting financial fraud"* — so the system was never
+   in Annex III, `annex_iii_derogation` stays `none`, and no Art. 6(4) duty
+   arises. A **derogation** under Art. 6(3) lifts out a system that *is* in
+   Annex III, and creates a documentation and registration duty of its own.
+   For a ManCo the fraud carve-out is the most valuable sentence in Annex III:
+   AML and transaction-monitoring tools that score natural persons are not
+   high-risk on the 5(b) limb.
+3. **Profiling beats every limb.** Art. 6(3) final subparagraph: an Annex III
+   system *"shall always be considered to be high-risk where the AI system
+   performs profiling of natural persons"*. `obligations_for()` checks this
+   before the limbs and, where both are set, emits an explicit line saying the
+   derogation does not apply.
+
+### Also corrected while in the file
+
+`UNIVERSAL` (Art. 4) is now gated on role and reworded. Art. 4(1) binds
+**providers and deployers**, not importers or distributors, and says *take
+measures to support the development of* AI literacy — with an express statement,
+added by the Omnibus, that it does not require any specific level to be
+guaranteed for any individual. v1 said "ensure staff have sufficient AI
+literacy" and applied it to everyone, which was stronger than the law on both
+counts.
+
+### Cost of the change
+
+The prompt now carries five worked examples instead of three, and the schema has
+16 required fields instead of 11. That is real input cost on every call — which
+is what prompt caching on Day 3 is for, since the examples never change between
+calls.
+
+### One judgement to check before labelling
+
+Few-shot example 5 (`InterviewScribe`) encodes a decision that is defensible but
+arguable: a transcription-and-structuring tool used inside a recruitment process
+is treated as within Annex III 4(a) and then derogated under Art. 6(3)(d) as a
+preparatory task, with `performs_profiling` false. **You are the expert labeller
+— check that you agree before you label.** If you disagree, the example is
+teaching the model the opposite of your ground truth, and the eval will measure
+that disagreement rather than the model's ability.
+
+The alternative was to ship no derogation example at all, in which case the
+field would almost certainly always come back `none` and the whole gate would be
+decorative. A contested example you have reviewed beats a gate that never fires.

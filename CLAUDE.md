@@ -54,3 +54,30 @@ claude.ai project.
 - `toolkit/` — reusable utilities promoted from daily work (each file needs a
   docstring: what/why/how, and must be imported by a project to stay)
 - `notes/dayN.md` — daily notes, definitions, cost tables, running log
+
+## Editing files in this repo — read before any automated edit
+
+Added 2026-09-02 after an automated edit to `.gitignore` mangled the whole
+file and briefly un-ignored `.env`. The rules that would have prevented it:
+
+- **Check the file's line endings before writing it back.** This repo is
+  mixed: `CLAUDE.md` is CRLF, `.gitignore` is LF. Never assume; read the
+  bytes, or use an operation that cannot care.
+- **Use the most boring operation that does the job.** Append to append; one
+  exact, unique replace to change one thing. No chained transformations over
+  whole-file contents — every extra step is a way to destroy the parts you
+  were not editing.
+- **`git status` showing many files modified with equal insertions and
+  deletions is not a real change.** It is an artifact of reading these
+  Windows working files through a Linux shell. Confirm with
+  `git diff --ignore-all-space --stat` (empty output = whitespace only) and
+  do NOT rewrite file contents to work around it.
+- **Verify the diff after writing, not just that the write succeeded.** Use
+  `git diff --ignore-all-space --stat <file>`, not plain `--stat`: because of
+  the artifact above, plain `--stat` reports the whole file as rewritten and
+  you cannot tell a real deletion from noise. Ignoring whitespace, an append
+  must show insertions only. If it shows deletions you destroyed something —
+  restore with `git checkout -- <file>` and start again.
+- **Extra care near anything holding secrets** — `.gitignore`, `.env.example`,
+  deploy config. After touching them, re-check the protection still works:
+  `git check-ignore -v .env` must print a matching rule.

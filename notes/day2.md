@@ -264,3 +264,91 @@ the wrong answer came from the hand-written Python, not from the model.
 **Open item carried into Day 4:** confirm on EUR-Lex whether the Digital Omnibus
 is formally adopted and published. `RULESET_VERSION` and the dates in
 `obligations.py` assume the post-Omnibus timeline.
+
+---
+
+## Handoff — 2026-09-02 (Windows)
+
+**Branch:** `day2`, merged `main` in at `5018972`. Day 2 is built and gated; the
+only thing left is the labelling.
+
+### What changed today: output contract v2
+
+The classifier asked the model for one judgement — the tier. The Act is a
+sequence of gates, and four of them had no field at all. Reviewed against the
+**consolidated** text (Reg. (EU) 2024/1689 as at 27.07.2026, i.e. as amended by
+the Digital Omnibus, Reg. (EU) 2026/1744) and fixed:
+
+| Gate | Article | Field |
+|---|---|---|
+| Does the Act apply? | Art. 2 | `act_applies` + `exclusion_ground` |
+| Stated role | Art. 3 | `our_role` (unchanged) |
+| Does Art. 25 escalate it? | Art. 25 | `art25_trigger` -> `effective_role`, derived in Python |
+| Tier | Arts. 5, 6 | `risk_tier` (unchanged) |
+| Derogated? | Art. 6(3) | `annex_iii_derogation` — the four limbs |
+| Profiling override | Art. 6(3) final subpara | `performs_profiling` — beats every limb |
+
+Plus the **Annex III 5(b) financial-fraud carve-out** in the prompt and a worked
+example. `RULESET_VERSION` -> `v2-2026-09-02-reg-2024-1689-consolidated-20260727`.
+
+Also corrected: `UNIVERSAL` (Art. 4) is now gated to providers and deployers —
+it does not bind importers or distributors — and reworded to the statutory
+language ("take measures to support the development of", not "ensure ...
+sufficient"), including the Omnibus disclaimer that no specific level need be
+guaranteed for any individual.
+
+### Verified without an API call
+
+Eight cases through `derive_effective_role()` + `obligations_for()`:
+excluded (Art. 2(6)) returns the exclusion text and no obligations; a high-risk
+deployer with a name/trademark trigger escalates to provider and gets the Art. 16
+list plus the Art. 25 note; **a minimal-risk deployer with the same trigger does
+NOT escalate** (Art. 25(1) is bound to high-risk); a claimed derogation adds the
+Art. 6(4) documentation and Art. 49(2) registration duties; a derogation limb
+plus profiling fires the override and restores the full high-risk list; an
+importer at minimal risk gets no Art. 4 line.
+
+### Labelling workbook rebuilt
+
+`data/project1_labels.xlsx` now has 15 columns in **gate order**, dropdowns on
+all ten enum fields, and a Read me sheet explaining why left-to-right matters.
+Still 20 rows, `v001`-`v020`, **0 labelled**.
+
+### Next session — in this order
+
+1. **Read few-shot example 5 (`InterviewScribe`) in `classify.py` and decide
+   whether you agree with it.** It treats a transcription tool used in
+   recruitment as inside Annex III 4(a) and then derogated under Art. 6(3)(d)
+   as a preparatory task, `performs_profiling` false. Defensible but arguable.
+   You are the expert labeller — if you disagree, that example is teaching the
+   model the opposite of your ground truth.
+2. Label all 20 descriptions. **Before looking at any model output.**
+3. Convert to `data/labels.jsonl`, commit that, untrack the xlsx.
+4. Compare predictions vs labels. Disagreements are Day 3's edge cases and the
+   Week 3 error-analysis seed.
+5. Tick Day 2 in START-HERE, merge `day2` into `main`.
+
+### New notes in this repo
+
+- `day2-act-review.md` — our logic vs the consolidated Act, article by article.
+  §E carries the deferred `obligations.py` fixes (Art. 50 role-correctness,
+  Art. 16 umbrella, split Arts. 23/24, narrow Arts. 26(11) and 27, Art. 51
+  FLOPs, new Art. 5(1)(ba)/(bb)). None of them block labelling.
+- `day2-prior-art-diff.md` — the FLI checker and the European Commission's own
+  (beta) checker, what they do that we do not, and what we do that they cannot.
+- `day4-publishing-checklist.md` — publishing makes us the provider of a
+  limited-risk AI system. Art. 50(1) and 50(2), the disclaimer (professional
+  liability, not the AI Act), and NOT storing what people paste.
+- `gemini-second-opinion-runbook.md` — decorrelated review on Vertex AI, on the
+  GCP credit that expires 2026-11-17.
+
+### Two environment things that cost time today
+
+1. **Line endings.** The working tree is CRLF for the markdown files; git's
+   index holds LF. Editing them from a Linux shell and staging naively commits
+   the whole file as rewritten. Normalise to LF before staging, and check with
+   `git diff --cached --ignore-all-space --numstat`. **A `.gitattributes` with
+   `* text=auto eol=lf` would end this permanently — worth doing on Day 3.**
+2. **An automated edit to `.gitignore` mangled the file** and briefly
+   un-ignored `.env`. Restored with `git checkout --` and redone as a plain
+   append. Rules to prevent a repeat are now in `CLAUDE.md`.

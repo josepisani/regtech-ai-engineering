@@ -38,3 +38,8 @@ data/*
 .DS_Store
 .idea/
 .vscode/
+
+# Local working copies and backups of third-party regulatory documents.
+# Kept beside the repo for convenience; not part of the project and not ours
+# to redistribute. Anything the project actually needs lives in data/.
+/AI Act tool back up docs/
