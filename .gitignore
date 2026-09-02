@@ -28,6 +28,9 @@ venv/
 data/*
 !data/vendor_descriptions.jsonl
 !data/labels.jsonl
+# The labelling workbook travels too, so the ground-truth pass can be done
+# on whichever machine you are sitting at. Synthetic data only.
+!data/project1_labels.xlsx
 *.sqlite
 *.db
 
