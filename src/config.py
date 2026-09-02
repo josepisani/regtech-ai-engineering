@@ -6,6 +6,7 @@ secrets uncommitted and makes the app portable from your laptop to Cloud Run.
 from __future__ import annotations
 
 import os
+from typing import overload
 from dotenv import load_dotenv
 
 # Load .env into the environment if present (a no-op in production, where real
@@ -22,6 +23,14 @@ def require(name: str) -> str:
             f"Copy .env.example to .env and fill it in."
         )
     return value
+
+
+# Two overloads so the type checker knows what callers know: with a default,
+# this can never return None. Without one, it can. Callers see only these.
+@overload
+def optional(name: str) -> str | None: ...
+@overload
+def optional(name: str, default: str) -> str: ...
 
 
 def optional(name: str, default: str | None = None) -> str | None:
