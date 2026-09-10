@@ -50,3 +50,9 @@ data/*
 # Model predictions on the labelled set: a dated snapshot per run, the Week 3
 # before/after seed. Synthetic inputs, model outputs only.
 !data/predictions.jsonl
+
+# Deliverables downloaded from Claude, kept beside the repo for convenience.
+# Not project files. Added 2026-09-10 after a briefing note for a lawyer -
+# a document about personal data-protection exposure - was found sitting
+# untracked at the repo root, one `git add -A` away from a public repo.
+/Claude outputs/

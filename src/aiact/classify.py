@@ -28,14 +28,26 @@ from __future__ import annotations
 
 import sys
 
+from anthropic import Anthropic
 from dotenv import load_dotenv
 
 from src.aiact.schema import Classification, ModelVerdict
-from toolkit.structured import StructuredResult, call_schema
+from toolkit.structured import StructuredResult, cached_system, call_schema
 
 load_dotenv()
 
 MODEL = "claude-haiku-4-5"
+
+# Longest description we will pay to classify. A vendor description that says
+# what the system does fits in a few hundred words; anything past this is a
+# pasted contract, a whole policy, or a mistake, and all three cost real money
+# at input prices before telling us anything useful. Rejecting it in Python is
+# free; discovering it in the bill is not.
+#
+# 8,000 characters is ~2,000 tokens — roughly four times the longest of the
+# twenty labelled descriptions, so it rejects accidents without clipping real
+# input. Raise it if a genuine description is ever refused; do not remove it.
+MAX_DESCRIPTION_CHARS = 8_000
 
 # The few-shot examples are chosen, not collected. Five cases, each carrying one
 # lesson the instructions alone do not reliably teach:
@@ -253,21 +265,75 @@ Worked examples:
 """.strip()
 
 
+# The system prompt is one cached block. It is built once at import and reused
+# byte for byte on every call, which is the condition for a cache hit — a
+# prompt assembled per call, even to the same string, is fine, but assembling
+# it here makes it obvious that nothing per-description can leak into it.
+#
+# The description travels in the USER message instead. That is not a style
+# choice: anything placed before the cache breakpoint changes the cached prefix
+# and misses the cache on every row.
+SYSTEM_BLOCKS = cached_system(SYSTEM_PROMPT)
+
+
+class DescriptionTooLongError(ValueError):
+    """The description exceeds MAX_DESCRIPTION_CHARS.
+
+    A subclass of ValueError so existing `except ValueError` call sites still
+    catch it, but distinguishable where a caller wants to say something more
+    useful than "bad input" — the API returns a different message for it, and
+    the UI can tell the user how much to cut.
+    """
+
+    def __init__(self, length: int, limit: int = MAX_DESCRIPTION_CHARS) -> None:
+        super().__init__(
+            f"Description is {length:,} characters; the limit is {limit:,}. "
+            f"Paste the part that says what the system does, not the whole document."
+        )
+        self.length = length
+        self.limit = limit
+
+
+def validate_description(description: str) -> str:
+    """Return the cleaned description, or raise before any money is spent.
+
+    Both the API and the UI call this, so the two cannot drift into different
+    ideas of what counts as valid input. Every rejection here is one that never
+    opens a socket.
+
+    Raises:
+        ValueError: the description is empty or whitespace only.
+        DescriptionTooLongError: past MAX_DESCRIPTION_CHARS.
+    """
+    description = (description or "").strip()
+    if not description:
+        raise ValueError("Nothing to classify: the description is empty.")
+    if len(description) > MAX_DESCRIPTION_CHARS:
+        raise DescriptionTooLongError(len(description))
+    return description
+
+
 def classify_with_meta(
-    description: str, *, model: str = MODEL, max_attempts: int = 3
+    description: str,
+    *,
+    model: str = MODEL,
+    max_attempts: int = 3,
+    client: Anthropic | None = None,
 ) -> tuple[Classification, StructuredResult]:
     """Classify one description and also return the wrapper's result.
 
-    The second value carries usage, attempts and stop_reason — what an eval
-    or a cost table needs and a caller that only wants the record does not.
+    The second value carries usage, attempts and stop_reason — what an eval,
+    a cost table or the UI's cost line needs, and a caller that only wants the
+    record does not.
 
-    Raises ValueError on empty input rather than paying for a call that cannot
-    produce anything useful — the cheapest failure is the one that never leaves
-    the process.
+    Raises on empty or over-long input rather than paying for a call that
+    cannot produce anything useful — the cheapest failure is the one that never
+    leaves the process.
+
+    `client` is injectable so the edge-case tests can drive truncation and
+    refusal paths deterministically, offline, with no API key.
     """
-    description = description.strip()
-    if not description:
-        raise ValueError("Nothing to classify: the description is empty.")
+    description = validate_description(description)
 
     result = call_schema(
         ModelVerdict,
@@ -275,16 +341,25 @@ def classify_with_meta(
             "Classify the following vendor or system description.\n\n"
             f"<description>\n{description}\n</description>"
         ),
-        system=SYSTEM_PROMPT,
+        system=SYSTEM_BLOCKS,
         model=model,
         max_attempts=max_attempts,
+        client=client,
     )
     return Classification.from_verdict(result.data), result
 
 
-def classify(description: str, *, model: str = MODEL, max_attempts: int = 3) -> Classification:
+def classify(
+    description: str,
+    *,
+    model: str = MODEL,
+    max_attempts: int = 3,
+    client: Anthropic | None = None,
+) -> Classification:
     """Classify one vendor or system description. See classify_with_meta."""
-    record, _ = classify_with_meta(description, model=model, max_attempts=max_attempts)
+    record, _ = classify_with_meta(
+        description, model=model, max_attempts=max_attempts, client=client
+    )
     return record
 
 
@@ -297,7 +372,29 @@ def main() -> None:
             'Usage: python -m src.aiact.classify "description"\n'
             "   or: cat description.txt | python -m src.aiact.classify"
         )
-    print(classify(text).model_dump_json(indent=2))
+
+    # Imported here rather than at module scope: costlog is for callers that
+    # want a cost line, and importing it at the top would make the core depend
+    # on it for every consumer that does not.
+    import time
+
+    from toolkit.costlog import format_cost, price
+
+    started = time.perf_counter()
+    try:
+        record, result = classify_with_meta(text)
+    except ValueError as exc:  # empty or over-long — nothing was spent
+        raise SystemExit(str(exc)) from exc
+    elapsed = time.perf_counter() - started
+
+    print(record.model_dump_json(indent=2))
+    # stderr, so `python -m src.aiact.classify ... > row.json` still writes
+    # clean JSON to the file while you watch the cost in the terminal.
+    print(
+        f"\n{result.model} · {elapsed:.1f}s · attempts={result.attempts} · "
+        f"{format_cost(price(result.usage, result.model))}",
+        file=sys.stderr,
+    )
 
 
 if __name__ == "__main__":

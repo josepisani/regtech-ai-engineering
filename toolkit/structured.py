@@ -34,8 +34,9 @@ HOW TO CALL IT
 
 WHAT IT DELIBERATELY DOES NOT DO
     It does not price the call. Pricing lives in one place or it eventually
-    lives in two places that disagree; Day 3 promotes `toolkit/costlog.py` and
-    that becomes the single table. Until then `result.usage` is passed through.
+    lives in two places that disagree; that place is `toolkit/costlog.py`,
+    promoted on Day 3. `result.usage` is passed through for it to read, cache
+    buckets included.
 """
 from __future__ import annotations
 
@@ -63,6 +64,58 @@ TEMPERATURE_MODELS = {
     "claude-sonnet-4-5",
     "claude-opus-4-5",
 }
+
+
+# Prompt caching has a minimum block size, below which cache_control is
+# accepted and then silently ignored — you get no error and no cache, which is
+# the worst possible failure mode because it looks like it worked. The minimum
+# is model-dependent (2048 tokens on the Haiku line, 1024 on Sonnet/Opus), so
+# the guard below uses the larger figure and warns rather than raises: a block
+# that is too small is a wasted optimisation, not a broken call.
+MIN_CACHEABLE_TOKENS = 2048
+_CHARS_PER_TOKEN = 4  # rough; only used to decide whether to warn
+
+
+def cached_system(*blocks: str, cache_last: bool = True) -> list[dict[str, Any]]:
+    """Build a system prompt as content blocks, with a cache breakpoint.
+
+    Prompt caching charges the marked prefix once (at a premium) and then reads
+    it back at a tenth of the input price on every later call that repeats it
+    byte for byte. For this project that matters more than it usually does:
+    Day 3's measurement showed ~7.2k input tokens per classification, of which
+    the description is ~300 — 94% of what we pay for on every row is the same
+    instructions and the same five worked examples.
+
+    ORDER MATTERS, and it is the easy thing to get wrong. Everything BEFORE the
+    breakpoint is cached, so anything that varies per call must come after it,
+    or the prefix changes and the cache misses every time. That is why the
+    per-description text goes in the user message and never in here.
+
+    Args:
+        *blocks: system prompt sections, in order.
+        cache_last: put the breakpoint on the final block, so every block is
+            cached. Set False to send the blocks uncached (useful for an A/B
+            measurement of what caching is actually saving).
+
+    Returns:
+        A list of content-block dicts suitable for `system=`.
+    """
+    out: list[dict[str, Any]] = [{"type": "text", "text": b} for b in blocks if b]
+    if not out or not cache_last:
+        return out
+
+    total_chars = sum(len(b["text"]) for b in out)
+    if total_chars < MIN_CACHEABLE_TOKENS * _CHARS_PER_TOKEN:
+        warnings.warn(
+            f"System prompt is ~{total_chars // _CHARS_PER_TOKEN} tokens, below the "
+            f"~{MIN_CACHEABLE_TOKENS}-token cache minimum. cache_control will be "
+            f"ignored silently and you will pay full input price. Check "
+            f"cache_read_input_tokens in the usage before trusting a saving figure.",
+            stacklevel=2,
+        )
+
+    out[-1]["cache_control"] = {"type": "ephemeral"}
+    return out
 
 
 class StructuredError(RuntimeError):
@@ -116,7 +169,7 @@ def call_schema(
     schema: type[T],
     *,
     prompt: str,
-    system: str | None = None,
+    system: str | list[dict[str, Any]] | None = None,
     model: str = DEFAULT_MODEL,
     max_tokens: int = 2048,
     max_attempts: int = 3,
@@ -129,7 +182,10 @@ def call_schema(
         schema: a Pydantic model class. Its JSON Schema is what constrains
             generation, so the class is the contract for both ends of the call.
         prompt: the user message.
-        system: optional system prompt.
+        system: optional system prompt. A plain string, or a list of content
+            blocks when you want prompt caching — see `cached_system`. The list
+            form is passed straight through, so a caller can mark exactly which
+            blocks are cacheable and this module stays out of that decision.
         model: model id. Defaults to Haiku 4.5 — the cheap one, per the sprint's
             standing rule that experiments run on Haiku.
         max_tokens: doubled on each retry after a truncation, because

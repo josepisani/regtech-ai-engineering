@@ -100,3 +100,199 @@ Art. 3(1) gate, prompt caching, `.gitattributes`, UI — all pending the Day 3
 "Done when" line from START-HERE. `openpyxl` was installed into the venv for
 the one-off conversion and is not in `requirements.txt`; the scratch script is
 gone.
+
+## Day 3 build — 2026-09-10
+
+Everything below is the Day 3 "Done when" bar from START-HERE §4, and nothing
+beyond it. The six accuracy patterns above are untouched: five of them (B-F)
+are prompt tuning and belong to Day 13's error analysis, and pattern A is a
+schema change that needs a decision before it is written (see "Open decision").
+
+### What landed
+
+**`toolkit/costlog.py` (new, the Day 3 toolkit promotion).** `price()`,
+`log_call()`, `summarise()`, `format_cost()`. Pricing now lives in exactly one
+place; `llm_probe.py` keeps its own copy on purpose as the standalone teaching
+file, nothing else should. Prices the two cache buckets as multiples of the
+input rate (write 1.25x, read 0.10x) rather than as typed-in figures.
+
+`log_call` has **no parameter that can take the description** - not `text`, not
+`prompt`, not `output`. `char_count` is offered instead. That is the no-logging
+decision built in on Day 3 rather than removed on Day 4, and there is a test
+asserting the signature so it cannot be added back "just for debugging".
+
+**Prompt caching.** `toolkit/structured.cached_system()` builds the system
+prompt as content blocks with an `ephemeral` cache breakpoint on the last one;
+`classify.SYSTEM_BLOCKS` is built once at import. The description stays in the
+user message, because anything before the breakpoint changes the cached prefix
+and misses on every row.
+
+Expected effect on the numbers measured above: ~6,900 of the ~7,200 input
+tokens per call become cache reads at 0.10x. Input cost per call falls from
+~$0.0072 to ~$0.0010, and the 20-row comparison from **$0.19 to roughly $0.07**.
+Unverified until a real run - `cache_read_input_tokens` in the usage is the
+only proof, and a cache marker that is too small or misplaced fails **silently**
+at full price. Check that field before quoting any saving.
+
+**Input guards.** `validate_description()` in the core, called by both the API
+and the UI so they cannot drift. Empty -> `ValueError`. Over
+`MAX_DESCRIPTION_CHARS` (8,000, ~4x the longest labelled description) ->
+`DescriptionTooLongError`. Both raise before a socket opens.
+
+**`webapp/main.py` - `POST /classify`.** A thin adapter over `classify_with_meta`.
+422 where the caller must change what they sent (empty, too long, refusal),
+502 where the model was reached but produced nothing usable. Response carries
+`ai_generated: true` as a field, so the Article 50(2) marking survives export
+to CSV and into whatever register the row ends up in.
+
+**`webapp/ui.py` - Streamlit.** Paste box, tier badge, obligations, gaps, legal
+basis, rationale, and a session table with CSV/JSON download - forty
+descriptions becoming forty rows is the differentiator, so the table is the
+demo. Article 25 escalation is surfaced as a banner only when stated and
+effective role differ. Sidebar carries the data-handling statement, the AI
+literacy line (Art. 4) and the prior-art comparison; the Art. 50(1) "you are
+interacting with an AI system" notice sits above the input; the disclaimer is
+at the foot.
+
+`CLASSIFY_API_URL` unset -> the UI imports the core and calls it in-process.
+Set -> it POSTs to that endpoint instead. Same core either way, so the two
+adapters cannot disagree about a classification, and "how would this run inside
+a bank?" has a one-variable answer.
+
+**`tests/` - 29 offline tests, 4 live.** `conftest.py` carries a `FakeClient`
+that replays scripted responses, so truncation, refusal and retry paths are
+tested with no key, no network and no money. Live tests (gibberish, a non-AI
+vendor, the fraud carve-out, the profiling override) are marked `live` and
+skipped unless `pytest -m live` is asked for AND a key is set.
+
+The Act gates that Python decides are now offline regression tests: the
+Annex III 5(b) carve-out produces **no** Article 6(4) duty, an Article 6(3)
+derogation **does**, and Article 25 escalates only on the high-risk path. Those
+run on every commit and cost nothing.
+
+### One real defect, found by a test rather than by reading
+
+The request model first used Pydantic's `max_length=`. Pydantic puts the
+offending value in the error's `input` field and FastAPI serialises the whole
+error list into the 422 body - so an over-long paste **came straight back to
+the caller**, all 9,000 characters of it, and would have reached anything
+watching 4xx responses.
+
+Fixed two ways: the length rule moved to `validate_description` (where the UI
+hits it too), and a `RequestValidationError` handler now strips `input` and
+`ctx` from every validation error. `test_no_api_error_response_repeats_what_was_pasted`
+checks four different bad requests, because the leak was not a property of the
+length rule - it was a property of returning error objects built by someone else.
+
+This is rule 6 from START-HERE §2 again: the wrong answer came from our own
+Python, not from the model. It is also the answer to "what did you find in
+testing?" in an interview.
+
+### Verified
+
+Offline suite 29 passed / 4 skipped. FastAPI checked end-to-end with a stubbed
+core: 200 on the happy path, 422 on empty/over-long/refusal, 502 on retry
+exhaustion and on an upstream 401, and no error body repeats the input. The
+Streamlit page was executed with `streamlit.testing.v1.AppTest` against a live
+local FastAPI instance: renders the row, the escalation banner, the session
+table, both downloads and the cost line. With no API key it shows a clean
+error under the button instead of a stack trace - the Day 3 "does not crash on
+bad input" bar.
+
+Not verified, and cannot be from here: a real API call. **Run the live tests
+and one real classification yourself before calling Day 3 closed**, and confirm
+`cache_read_input_tokens` is non-zero on the second call.
+
+### Line endings
+
+The repo is mixed: `.py`, `requirements.txt`, `.gitignore` and `CLAUDE.md` are
+CRLF; `notes/*.md` are LF. Everything written today was normalised to match its
+neighbours before being written back, and `requirements.txt` was checked
+byte-identical for its first 153 bytes so the append could not have touched the
+existing eight lines.
+
+The root fix is still `.gitattributes`, listed above as deliberately not done.
+It stays not done: adding it renormalises the whole repo in one commit, which
+is a change worth making on its own rather than buried in a feature day.
+
+### Open decision, before Day 4 deploys anything
+
+Pattern A - the Article 3(1) gate, six of twenty rows, the biggest single loss.
+The schema has nowhere to put "this may not be an AI system at all", so the
+model assesses the *risk* of a threshold-matching reconciliation engine and
+returns a tier with `high` confidence.
+
+Deploying publicly without it means a tool that tells a bank its reconciliation
+engine is high-risk AI, confidently. That is the professional-liability problem
+the Day 4 disclaimer exists for, and a disclaimer is a weaker fix than a gate.
+
+Proposed shape, for a decision rather than a build:
+  - new field `is_ai_system`: `ai_system` | `not_an_ai_system` | `unclear`,
+    answered as Gate 0, before Article 2;
+  - `unclear` -> `risk_tier` = `insufficient_information` with a gap question
+    ("does it infer outputs from inputs, or apply fixed rules a person wrote?"),
+    which is exactly what the six labels say;
+  - `not_an_ai_system` -> `act_applies` = `excluded` with a new
+    `exclusion_ground`, so `obligations_for` returns nothing without new logic;
+  - one prompt gate and one worked example; the labels do not change.
+
+Cost to test: one re-run of `compare.py`, ~$0.07 with caching on.
+
+## Privacy changes, same day — after the question "can I see what testers paste?"
+
+The honest answer was no, and that was the wrong test. Not storing is not the
+same as not processing, and processing is what GDPR turns on: operating this
+publicly makes the operator the controller and Anthropic the processor, and the
+Cloud Run access log carries the caller's IP whether or not anyone types
+anything sensitive.
+
+Five changes, all cheap, none of them legal advice:
+
+1. **`logger.exception` -> `logger.error` with the exception type only.** The
+   traceback could carry the request that caused it - an SDK error for a
+   malformed request may quote the body it sent, and that body is the
+   description. Low probability, and exactly the leak the page says does not
+   happen. The cost is real: a 502 is now harder to debug from the log alone.
+   Reproduce it locally with your own description instead, where a full
+   traceback is free.
+
+2. **`webapp/examples.py` (new), and the demo leads with it.** Four worked
+   examples in a picker; free text is a second radio option. The ordering IS
+   the control: most visitors want to see what the tool does, which an example
+   answers, so the people who type are a much smaller group who have read a
+   notice first. Capability unchanged, default changed.
+
+3. **A notice beside the text box, not in a policy page.** Do not paste
+   personal data or client information; what you enter goes to Anthropic's API
+   in the United States, is classified and discarded, is not stored here and
+   cannot be retrieved by the operator. That is Article 13 in the place it is
+   actually read.
+
+4. **The sidebar names controller and processor**, says the access log holds IP
+   addresses, and points at the examples as the reason free text is not needed.
+
+5. **Log retention shortened at deploy** - `gcloud logging buckets update
+   _Default --retention-days=7`, in the README deploy block. Thirty days of IP
+   addresses for a portfolio demo is a default, not a decision.
+
+### On the examples
+
+None of the four is a few-shot example from the prompt. Demoing a model on its
+own worked examples is a rigged demo and takes an interviewer about a minute to
+catch. They are chosen so each interesting outcome appears once: ShortlistPro
+(high_risk, Annex III 4(a)), FraudLens (NOT high_risk - the 5(b) fraud
+carve-out, the most counter-intuitive answer the tool gives), Aurora
+(insufficient_information with the questions to ask - the output a decision
+tree cannot produce), ClientDesk (limited_risk, Article 50).
+
+A fifth belongs there and is deliberately held back: a deterministic
+threshold-matching reconciliation engine, where the real question is Article
+3(1), "is this an AI system at all?". The schema has no field for it yet
+(pattern A above), so the tool answers confidently and wrongly. It becomes the
+best example in the set the day that gate lands.
+
+### Still open
+
+The Anthropic DPA and the transfer terms covering that processing. That is a
+document to accept and file, not code - and it is a precondition for the public
+deploy, not a Day 5 tidy-up.

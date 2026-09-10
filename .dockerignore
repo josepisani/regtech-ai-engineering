@@ -8,3 +8,17 @@ __pycache__/
 .git/
 .pytest_cache/
 tests/
+# Added 2026-09-10 (day3/day4). Everything above this line keeps secrets and
+# build junk out; everything below keeps the image small and keeps material out
+# of a PUBLIC container that has no business being there.
+#
+# "AI Act tool back up docs/" is ~7 MB of reference PDFs. data/ is the labelled
+# eval set and the prediction dumps: synthetic, but there is no reason to ship
+# a ground-truth answer key inside the tool being evaluated. notes/ is the
+# working log. None of the three is imported by the app.
+AI Act tool back up docs/
+data/
+notes/
+*.md
+!README.md
+.vscode/
