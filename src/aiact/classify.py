@@ -31,7 +31,7 @@ import sys
 from dotenv import load_dotenv
 
 from src.aiact.schema import Classification, ModelVerdict
-from toolkit.structured import call_schema
+from toolkit.structured import StructuredResult, call_schema
 
 load_dotenv()
 
@@ -45,7 +45,12 @@ MODEL = "claude-haiku-4-5"
 #   3 Cognita      - "I cannot classify this" is a permitted answer
 #   4 SentinelPay  - the Annex III 5(b) financial-fraud CARVE-OUT
 #   5 InterviewScribe - the Article 6(3) DEROGATION, and why it is not the same
-#                       thing as the carve-out
+#                       thing as the carve-out. Reviewed 2026-09-10: the
+#                       conditions for limb (d) are stated as facts in the
+#                       description, Art. 50 is assessed separately before
+#                       minimal_risk, and the GPAI fact is in the text rather
+#                       than assumed. Example 1 is the deliberate contrast:
+#                       same Annex III point, but ranking = profiling = no limb.
 #
 # Examples 2 and 4 do the most work. A model asked to classify anything in a
 # financial firm drifts toward high_risk, because the surrounding language is
@@ -167,15 +172,19 @@ Vendor-hosted, used as supplied.
 
 <example>
 <description>
-InterviewScribe. Transcribes recorded interview calls and organises the
-transcript under the competency headings on our interview form, so the hiring
-manager can write up their assessment faster. It produces no score, ranking or
-recommendation; the manager writes the assessment themselves.
+InterviewScribe. Transcribes recorded interview calls verbatim and places each
+passage under the competency heading on our interview form that the question
+belonged to, so the hiring manager can write up their assessment faster. It
+does not summarise, paraphrase, omit or highlight anything, and produces no
+score, ranking, recommendation or characterisation of the candidate; the
+manager reads the full transcript and writes the assessment themselves. The
+vendor states it runs on a general-purpose speech-to-text and language model,
+used as supplied. We buy it as a subscription.
 </description>
 <answer>
 {"system_name": "InterviewScribe",
  "provider_name": "InterviewScribe",
- "system_purpose": "Transcribes interview recordings and arranges the text under competency headings for the hiring manager to write up.",
+ "system_purpose": "Transcribes interview recordings verbatim and groups the text under competency headings for the hiring manager to write up their own assessment.",
  "act_applies": "applies",
  "exclusion_ground": "none",
  "our_role": "deployer",
@@ -184,10 +193,10 @@ recommendation; the manager writes the assessment themselves.
  "annex_iii_derogation": "preparatory_task",
  "performs_profiling": false,
  "is_gpai": true,
- "gpai_note": "Vendor states a general-purpose speech and language model is used, as supplied.",
+ "gpai_note": "Vendor states a general-purpose speech-to-text and language model is used, as supplied.",
  "legal_basis": ["Annex III 4(a)", "Article 6(3)(d)"],
- "rationale": "The system is used within a recruitment process, so Annex III point 4(a) is engaged. It performs a preparatory task to the assessment rather than the assessment itself: it produces no score, ranking or recommendation, and does not materially influence the outcome of the decision, so the Article 6(3) derogation applies on limb (d). It does not evaluate personal aspects of the candidate, so it does not perform profiling and the override in the final subparagraph of Article 6(3) is not triggered.",
- "gaps": ["Does the tool summarise or characterise the candidate's answers, rather than only transcribing and grouping them? Summarising that characterises a candidate would be evaluation, not a preparatory task.", "Has the vendor documented its own Article 6(3) assessment under Article 6(4)?"],
+ "rationale": "The system is used within a recruitment process, so Annex III point 4(a) is engaged; being used in recruitment is not by itself enough to make it high-risk, nor is being a transcriber enough to keep it out. On the facts stated — verbatim transcription, grouping by the question asked, no summary, omission or emphasis, and no evaluation of the candidate's traits — it performs a preparatory task to the assessment rather than the assessment itself, does not materially influence the outcome of the decision, and poses no significant risk to fundamental rights, so the Article 6(3) derogation applies on limb (d). It does not evaluate personal aspects of a natural person, so it does not perform profiling and the override in the final subparagraph of Article 6(3) is not triggered. Assessed separately, Article 50 is not engaged: the system does not interact with natural persons (it processes a recording after the interview), and its output reproduces what was said rather than generating synthetic content. Hence minimal_risk. The conclusion depends on those stated facts; if any of them fails, the derogation falls away.",
+ "gaps": ["Can the vendor confirm the transcript is complete and unedited — no summarisation, paraphrase, omission or highlighting? Any of those could steer the assessment and would defeat the preparatory-task limb; summarising would also engage Article 50(2).", "Does the tool ever infer or label anything about the candidate — sentiment, confidence, communication skill? That would be evaluation, and profiling.", "Has the vendor documented its own Article 6(3) assessment under Article 6(4) and registered under Article 49(2)?"],
  "confidence": "medium"}
 </answer>
 </example>
@@ -244,8 +253,13 @@ Worked examples:
 """.strip()
 
 
-def classify(description: str, *, model: str = MODEL, max_attempts: int = 3) -> Classification:
-    """Classify one vendor or system description.
+def classify_with_meta(
+    description: str, *, model: str = MODEL, max_attempts: int = 3
+) -> tuple[Classification, StructuredResult]:
+    """Classify one description and also return the wrapper's result.
+
+    The second value carries usage, attempts and stop_reason — what an eval
+    or a cost table needs and a caller that only wants the record does not.
 
     Raises ValueError on empty input rather than paying for a call that cannot
     produce anything useful — the cheapest failure is the one that never leaves
@@ -265,7 +279,13 @@ def classify(description: str, *, model: str = MODEL, max_attempts: int = 3) -> 
         model=model,
         max_attempts=max_attempts,
     )
-    return Classification.from_verdict(result.data)
+    return Classification.from_verdict(result.data), result
+
+
+def classify(description: str, *, model: str = MODEL, max_attempts: int = 3) -> Classification:
+    """Classify one vendor or system description. See classify_with_meta."""
+    record, _ = classify_with_meta(description, model=model, max_attempts=max_attempts)
+    return record
 
 
 def main() -> None:
