@@ -265,3 +265,50 @@ shape, the Annex III citations, the Art. 26 paragraph numbers and the
 post-Omnibus dates all survived contact with the text. The defects are at the
 edges — scope, derogations, and which role a duty actually binds — which is
 where compliance tools usually fail.
+
+## F. Verified against the Omnibus text, 2026-09-03 — and a seventh gate
+
+Checked directly against `AI Act tool back up docs/Digital omnibus on AI.pdf`
+(Regulation (EU) 2026/1744, ELI `reg/2026/1744/oj`, OJ L of 24.7.2026 — which
+confirms `RULESET_VERSION` from the primary text, not from a summary).
+
+**Article 3(1), the definition of an AI system, is NOT amended.** The Omnibus
+touches Article 3 in two places only: point (14) `safety component` is reworded,
+and points (14a) `SME` and (14b) `small mid-cap` are inserted. Cross-check: the
+word "infers" appears nowhere in the Omnibus, and it never refers to Article 3
+point (1). The Art. 3(1) test — a system that *infers* how to generate outputs —
+is current law as we apply it.
+
+**Article 2 IS amended, but not the exclusions.** Three changes: paragraph 2
+(narrows what applies to Annex I Section B products), paragraph 7 (relationship
+with Regulation (EU) 2016/679), and a new paragraph 13 (Art. 6(1) requirements
+may be limited where Annex I Section A law gives equivalent protection). The
+exclusions in Gate 1 — military/defence/national security, third-country
+authorities, sole-purpose R&D, personal non-professional use — are unchanged.
+Gate 1's list in `classify.py` is accurate.
+
+### The seventh gate — missing, and it sits BEFORE Article 2
+
+Surfaced by labelling row **v001 (CloudNAV)**: a reconciliation engine that
+matches two feeds and flags variances over a fixed 0.01% threshold. A human
+chose 0.01%; nothing is inferred. Per Art. 3(1) and Recital 12 (rules "defined
+solely by natural persons to automatically execute operations"), **that is not
+an AI system at all** — so the Act does not reach it, for a reason that has
+nothing to do with Article 2.
+
+The schema cannot say this. `act_applies` is `applies|excluded|unclear`, and
+none of the six `exclusion_ground` values means "not an AI system". Labelling
+v001 therefore forces `unclear` + `insufficient_information`, which is the
+nearest available answer and the wrong one.
+
+Why this is not cosmetic: run the tool across a real ManCo's vendor estate and
+"not an AI system" is the most common correct answer. Without this gate every
+rule-based system in the inventory comes back in-scope minimal-risk. It is also
+the obvious interview and Conducting-Officer question — *how do you handle
+vendors who put "AI-powered" on deterministic software?*
+
+**Day 3 change (schema + prompt, before any UI work):** add the Art. 3(1) gate
+ahead of Gate 1 — a field distinguishing "not an AI system" from "excluded
+under Art. 2" from "cannot tell" — and a gap question asking whether the system
+infers or only executes human-defined rules. Deferred deliberately so labelling
+is not interrupted; the v001 `why` cell carries the same finding.

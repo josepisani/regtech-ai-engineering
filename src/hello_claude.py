@@ -1,15 +1,25 @@
 """Smallest useful Claude call: send a prompt, print the reply, and report cost.
 
-Run:  python -m src.hello_claude
+Run:  py -m src.hello_claude      (also: py src/hello_claude.py)
 
 This is your Day-1 cost-logger in embryo. Watching real cents-per-call is the
 best budget alarm you have, so it's built in from the first script.
 """
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 from anthropic import Anthropic
 
-from . import config
+# Absolute import, the convention elsewhere in src/. Under `py -m` that is
+# all you need. Run the file as a plain script instead and Python puts src/
+# on sys.path rather than the repo root, so the package `src` is invisible
+# and any relative import has no parent package to resolve against. Adding
+# the repo root first makes both ways work.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from src import config  # noqa: E402  (needs the sys.path line above)
 
 # Approximate USD per 1M tokens for Claude Sonnet 5 (input / output).
 # These are ballpark figures for a rough cost readout — check the pricing page
