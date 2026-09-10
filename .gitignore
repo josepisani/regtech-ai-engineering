@@ -30,7 +30,6 @@ data/*
 !data/labels.jsonl
 # The labelling workbook travels too, so the ground-truth pass can be done
 # on whichever machine you are sitting at. Synthetic data only.
-!data/project1_labels.xlsx
 *.sqlite
 *.db
 
@@ -47,3 +46,7 @@ data/*
 # Labelling workbook: superseded by data/labels.jsonl on 2026-09-10 (day3).
 # Untracked, kept locally for reference.
 /data/project1_labels.xlsx
+
+# Model predictions on the labelled set: a dated snapshot per run, the Week 3
+# before/after seed. Synthetic inputs, model outputs only.
+!data/predictions.jsonl
