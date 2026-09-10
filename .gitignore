@@ -43,3 +43,7 @@ data/*
 # Kept beside the repo for convenience; not part of the project and not ours
 # to redistribute. Anything the project actually needs lives in data/.
 /AI Act tool back up docs/
+
+# Labelling workbook: superseded by data/labels.jsonl on 2026-09-10 (day3).
+# Untracked, kept locally for reference.
+/data/project1_labels.xlsx
