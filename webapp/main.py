@@ -40,7 +40,8 @@ from src.aiact.classify import (
 )
 from src.aiact.schema import Classification
 from toolkit.costlog import SpendCapExceeded, check_spend_cap, log_call, price, record_spend
-from toolkit.structured import RefusalError, SchemaRetryError, StructuredError
+from toolkit.structured import RefusalError, StructuredError
+from webapp.errors import record_failed_spend, safe_error_message
 
 # --- DATA HANDLING ----------------------------------------------------------
 # Nothing a caller sends is written anywhere. Concretely:
@@ -50,6 +51,10 @@ from toolkit.structured import RefusalError, SchemaRetryError, StructuredError
 #     is given only a character count;
 #   * error responses describe the failure without quoting the input, so a
 #     description cannot arrive in an error-tracking tool by the back door.
+#     Every message comes from webapp.errors.safe_error_message, which maps
+#     by exception TYPE — an exception's text is not ours and may quote the
+#     request (a Pydantic error quotes the value it rejected; an SDK error
+#     can quote the body it sent).
 # The one place this is easy to break is a debug `logger.info(f"...{body}")`
 # added while chasing a bug and never removed. Don't.
 logger = logging.getLogger("aiact")
@@ -169,7 +174,8 @@ def classify_endpoint(body: ClassifyRequest) -> ClassifyResponse:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     # Before the call, not after: the cap is a ceiling on what has been spent
-    # when a call starts, so it can be overshot by at most one call. 429 rather
+    # when a classification starts, so a sequential caller overshoots it by at
+    # most one classification — up to max_attempts billable calls. 429 rather
     # than 402 or 503 — this is rate limiting, the limiter is spend rather than
     # requests, and a client that backs off and retries is doing the right thing.
     try:
@@ -180,20 +186,20 @@ def classify_endpoint(body: ClassifyRequest) -> ClassifyResponse:
     started = time.perf_counter()
     try:
         record, result = classify_with_meta(description)
-    except RefusalError as exc:
-        raise HTTPException(
-            status_code=422,
-            detail="The model declined to classify this description.",
-        ) from exc
-    except SchemaRetryError as exc:
-        # exc carries the last validation error, which is about OUR schema, not
-        # about the caller's text — safe to surface and genuinely useful.
-        raise HTTPException(
-            status_code=502,
-            detail=f"No valid classification after {exc.attempts} attempts: {exc.last_error}",
-        ) from exc
     except StructuredError as exc:
-        raise HTTPException(status_code=502, detail=f"Classification failed: {exc}") from exc
+        # The model was reached and answered — a refusal, or three replies that
+        # never conformed — and every one of those replies was billed. Charge
+        # the cap before the error leaves, or a request that keeps failing
+        # keeps spending and the counter never moves.
+        #
+        # The detail is a fixed sentence chosen by type. The first version put
+        # exc.last_error here on the reasoning that a validation error is
+        # about our schema, not the caller's text. Wrong: Pydantic quotes the
+        # rejected value, and the rejected value was a field the model had
+        # filled from the description. A sentinel test now guards this.
+        record_failed_spend(exc)
+        status = 422 if isinstance(exc, RefusalError) else 502
+        raise HTTPException(status_code=status, detail=safe_error_message(exc)) from exc
     except Exception as exc:  # upstream API errors, network, auth
         # logger.EXCEPTION would write the full traceback, and a traceback can
         # carry the request: an SDK error for a malformed request may quote the
@@ -206,9 +212,7 @@ def classify_endpoint(body: ClassifyRequest) -> ClassifyResponse:
         # more is to reproduce it locally with a description of your own, where
         # a full traceback is free.
         logger.error("classify failed: %s", type(exc).__name__)
-        raise HTTPException(
-            status_code=502, detail="The classification service is unavailable."
-        ) from exc
+        raise HTTPException(status_code=502, detail=safe_error_message(exc)) from exc
     elapsed = time.perf_counter() - started
 
     cost = price(result.usage, result.model)

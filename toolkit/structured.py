@@ -30,7 +30,11 @@ HOW TO CALL IT
     )
     result.data          # -> MyModel instance
     result.attempts      # -> 1, or more if it had to retry
-    result.usage         # -> raw usage object; Day 3's costlog prices it
+    result.usage         # -> tokens summed over EVERY attempt; costlog prices it
+
+    A failure is billed too. RefusalError and SchemaRetryError carry the same
+    `usage` (and `model`) for the responses received before giving up, so the
+    caller can record what a failed classification cost.
 
 WHAT IT DELIBERATELY DOES NOT DO
     It does not price the call. Pricing lives in one place or it eventually
@@ -40,12 +44,11 @@ WHAT IT DELIBERATELY DOES NOT DO
 """
 from __future__ import annotations
 
-import json
 import warnings
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
-from anthropic import Anthropic
+from anthropic import Anthropic, transform_schema
 from pydantic import BaseModel, ValidationError
 
 T = TypeVar("T", bound=BaseModel)
@@ -118,8 +121,51 @@ def cached_system(*blocks: str, cache_last: bool = True) -> list[dict[str, Any]]
     return out
 
 
+@dataclass
+class Usage:
+    """Token counts summed over every response received during one call.
+
+    A classification that truncates, retries and then succeeds has made three
+    billable calls, and the first two do not become free because the third
+    worked. So `call_schema` adds every response it receives into one of these
+    and hands it back on the result when it succeeds and on the exception when
+    it does not. The four attribute names are the SDK's own, so
+    `costlog.price` reads this exactly as it would read one raw usage object.
+    """
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
+    responses: int = 0
+
+    def add(self, usage: Any) -> None:
+        """Add one response's usage. Absent and None fields count as zero."""
+        for name in (
+            "input_tokens",
+            "output_tokens",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+        ):
+            setattr(self, name, getattr(self, name) + int(getattr(usage, name, 0) or 0))
+        self.responses += 1
+
+
 class StructuredError(RuntimeError):
-    """Base class, so a caller can catch every failure of this module at once."""
+    """Base class, so a caller can catch every failure of this module at once.
+
+    `usage` is what the failed call cost: every response received before the
+    error, summed. A caller that records spend must record this too, or a
+    request that fails three times in a row costs three calls and counts as
+    nothing. It is None only when no response was ever received.
+    """
+
+    def __init__(
+        self, message: str, *, usage: Usage | None = None, model: str | None = None
+    ) -> None:
+        super().__init__(message)
+        self.usage = usage
+        self.model = model
 
 
 class RefusalError(StructuredError):
@@ -134,16 +180,29 @@ class RefusalError(StructuredError):
 class SchemaRetryError(StructuredError):
     """Ran out of attempts without a conforming answer.
 
-    Carries the last error so the failure can be read after the fact instead of
-    guessed at. This is the honest end of the road: no partial object is
-    returned and no field is defaulted, because a pipeline that silently
-    invents a value when the model failed will never show you that it happened.
+    This is the honest end of the road: no partial object is returned and no
+    field is defaulted, because a pipeline that silently invents a value when
+    the model failed will never show you that it happened.
+
+    The last validation error is kept on `last_error`, NOT in the message.
+    Pydantic quotes the rejected value in its error text, and on this project
+    the rejected value can be a field the model filled from the user's
+    description — so `str(exc)` must stay safe to show, and the detail stays
+    on the attribute for whoever is debugging locally.
     """
 
-    def __init__(self, attempts: int, last_error: str) -> None:
+    def __init__(
+        self,
+        attempts: int,
+        last_error: str,
+        *,
+        usage: Usage | None = None,
+        model: str | None = None,
+    ) -> None:
         super().__init__(
-            f"No schema-conformant response after {attempts} attempt(s). "
-            f"Last error: {last_error}"
+            f"No schema-conformant response after {attempts} attempt(s).",
+            usage=usage,
+            model=model,
         )
         self.attempts = attempts
         self.last_error = last_error
@@ -156,11 +215,13 @@ class StructuredResult:
     `attempts` is worth logging even when it is 1 — a schema whose attempt
     count creeps up over time is telling you the prompt and the schema have
     drifted apart, and that is much easier to see in a number than in prose.
+
+    `usage` covers every attempt, not just the one that succeeded.
     """
 
     data: BaseModel
     attempts: int
-    usage: Any
+    usage: Usage
     stop_reason: str | None
     model: str
 
@@ -202,18 +263,34 @@ def call_schema(
     """
     client = client or Anthropic()
 
+    # The schema travels as an output_config, built the same way the SDK's
+    # messages.parse() builds it — but sent through messages.create(), which
+    # returns the message RAW. That difference is the whole point of this
+    # function. parse() validates the reply against the schema before it
+    # returns, so a reply cut off at max_tokens raises a ValidationError
+    # inside the SDK and the stop_reason checks below never run. Found in the
+    # 2026-09-15 review: the wrapper called parse(), and its retry loop could
+    # only be reached by a fake that skipped the SDK's own validation.
+    output_config = {
+        "format": {
+            "type": "json_schema",
+            "schema": transform_schema(schema.model_json_schema()),
+        }
+    }
+
     # The conversation grows across attempts: each failed reply and the error it
     # caused stay in the messages list, so the model can see its own mistake.
     messages: list[dict[str, Any]] = [{"role": "user", "content": prompt}]
     last_error = "no attempt was made"
     tokens = max_tokens
+    usage = Usage()
 
     for attempt in range(1, max_attempts + 1):
         params: dict[str, Any] = {
             "model": model,
             "max_tokens": tokens,
             "messages": messages,
-            "output_format": schema,
+            "output_config": output_config,
         }
         if system:
             params["system"] = system
@@ -228,7 +305,9 @@ def call_schema(
                     stacklevel=2,
                 )
 
-        message = client.messages.parse(**params)
+        message = client.messages.create(**params)
+        # Billed the moment it arrives, whatever it turns out to contain.
+        usage.add(message.usage)
 
         # --- stop_reason is checked before the payload ---------------------
         # A truncated or refused response can still carry something that looks
@@ -238,7 +317,9 @@ def call_schema(
         if message.stop_reason == "refusal":
             raise RefusalError(
                 "The model refused to answer this prompt. Retrying the same "
-                "prompt will not change that."
+                "prompt will not change that.",
+                usage=usage,
+                model=model,
             )
 
         if message.stop_reason == "max_tokens":
@@ -248,32 +329,25 @@ def call_schema(
             continue
 
         # --- the payload ---------------------------------------------------
-        # parsed_output is already an instance of `schema` when the grammar did
-        # its job. It can be None if the reply carried no parseable block, so
-        # the fallback re-parses the raw text: that path is what makes this
-        # wrapper work against a provider with no structured-output support.
-        parsed = getattr(message, "parsed_output", None)
-        if parsed is not None:
-            return StructuredResult(
-                data=parsed,
-                attempts=attempt,
-                usage=message.usage,
-                stop_reason=message.stop_reason,
-                model=model,
-            )
-
+        # Validated HERE, by us, after the stop_reason is known. The grammar
+        # means the text usually conforms already; validating it locally is
+        # what makes this wrapper work unchanged against a provider with no
+        # structured-output support, and what puts a malformed reply into the
+        # retry below instead of into an exception from inside the SDK.
+        # model_validate_json raises the same ValidationError for text that is
+        # not JSON at all as for JSON that breaks the schema.
         raw = "".join(
             block.text for block in message.content if getattr(block, "type", None) == "text"
         )
         try:
             return StructuredResult(
-                data=schema.model_validate(json.loads(raw)),
+                data=schema.model_validate_json(raw),
                 attempts=attempt,
-                usage=message.usage,
+                usage=usage,
                 stop_reason=message.stop_reason,
                 model=model,
             )
-        except (json.JSONDecodeError, ValidationError) as exc:
+        except ValidationError as exc:
             last_error = str(exc)
             # Feed the failure back: the assistant's own words, then the precise
             # complaint. This is the part that makes a retry worth paying for.
@@ -290,4 +364,4 @@ def call_schema(
                 },
             ]
 
-    raise SchemaRetryError(max_attempts, last_error)
+    raise SchemaRetryError(max_attempts, last_error, usage=usage, model=model)

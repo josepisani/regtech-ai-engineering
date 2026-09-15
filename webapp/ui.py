@@ -31,9 +31,11 @@ HOW IT TALKS TO THE CORE
     an endpoint inside the perimeter and nothing else changes.
 
 WHAT IT DELIBERATELY DOES NOT DO
-    It does not write anything you paste to disk. Rows live in Streamlit's
-    per-session memory and are gone when the tab closes. Nothing is persisted
-    server-side, and the cost log records a character count, never characters.
+    It does not write anything you paste to disk or to a database. Rows live
+    in Streamlit's session state — server-side memory tied to the open
+    session, cleared when it resets — and the cost log records a character
+    count, never characters. "Server-side" is the honest word: the first
+    version said "browser session's memory", which it never was.
 """
 from __future__ import annotations
 
@@ -100,13 +102,19 @@ def _classify_in_process(description: str) -> tuple[dict, dict]:
     message under the button, not as a stack trace instead of the whole page."""
     from src.aiact.classify import classify_with_meta
     from toolkit.costlog import check_spend_cap, log_call, price, record_spend
+    from toolkit.structured import StructuredError
+    from webapp.errors import record_failed_spend
 
     # Before the call. In API mode the endpoint does the same check, so the cap
     # holds whichever way the UI is wired.
     check_spend_cap()
 
     started = time.perf_counter()
-    record, result = classify_with_meta(description)
+    try:
+        record, result = classify_with_meta(description)
+    except StructuredError as exc:
+        record_failed_spend(exc)  # the replies that failed were billed too
+        raise
     elapsed = time.perf_counter() - started
 
     cost = price(result.usage, result.model)
@@ -137,9 +145,15 @@ def _classify_over_http(description: str) -> tuple[dict, dict]:
     )
     if response.status_code >= 400:
         # The API's own message is written to be safe to show: it describes the
-        # failure without quoting what was sent.
-        detail = response.json().get("detail", response.text)
-        raise RuntimeError(detail)
+        # failure without quoting what was sent. ApiError is the one exception
+        # type whose text the page displays verbatim, for that reason.
+        from webapp.errors import ApiError
+
+        try:
+            detail = response.json().get("detail")
+        except ValueError:
+            detail = None
+        raise ApiError(detail or f"The classification service answered {response.status_code}.")
     payload = response.json()
     return payload["classification"], payload["cost"]
 
@@ -266,10 +280,11 @@ with st.sidebar:
         "PBC (United States), which runs the language model that reads the "
         "description, under its own commercial terms.\n\n"
         "What you enter is sent to that API to be classified and is then "
-        "discarded. It is **not stored** by this application and cannot be "
-        "retrieved by its operator: rows exist only in this browser session's "
-        "memory and go when you close the tab, and the cost log records how "
-        "long a description was, never what it said.\n\n"
+        "discarded. It is **not persisted** by this application: inputs and "
+        "results are held transiently in server-side session memory, are not "
+        "written to disk or a database, and are cleared when the session "
+        "resets. The cost log records how long a description was, never what "
+        "it said.\n\n"
         "Server access logs hold the usual request metadata, including your IP "
         "address, for a short retention period.\n\n"
         "Please do not enter personal data or client information. Examples are "
@@ -318,9 +333,9 @@ else:
     st.warning(
         "**Please do not paste personal data or client information.** "
         "What you enter is sent to Anthropic's API to be classified and is then "
-        "discarded — it is not stored by this application and cannot be retrieved "
-        "by its operator. Anthropic processes it in the United States under its "
-        "own commercial terms. Use invented or public descriptions."
+        "discarded — it is held only in this session's server-side memory and is "
+        "not written to disk or a database. Anthropic processes it in the United "
+        "States under its own commercial terms. Use invented or public descriptions."
     )
     description = st.text_area(
         "Vendor or system description",
@@ -349,9 +364,12 @@ if go:
             try:
                 record, cost = run_classification(cleaned)
             except Exception as exc:  # noqa: BLE001 — the page must not crash
-                # The message is shown; the description is not repeated back,
-                # here or anywhere else.
-                st.error(f"Classification failed: {exc}")
+                # A fixed sentence chosen by exception TYPE, never str(exc):
+                # an SDK error can quote the request it sent, and a validation
+                # error quotes the value it rejected. Found 2026-09-15.
+                from webapp.errors import safe_error_message
+
+                st.error(safe_error_message(exc))
                 st.caption(
                     "If this says the API key is missing, set ANTHROPIC_API_KEY "
                     "in your .env and restart. Nothing you pasted was sent anywhere "

@@ -32,7 +32,7 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 
 from src.aiact.schema import Classification, ModelVerdict
-from toolkit.structured import StructuredResult, cached_system, call_schema
+from toolkit.structured import SchemaRetryError, StructuredResult, cached_system, call_schema
 
 load_dotenv()
 
@@ -385,6 +385,11 @@ def main() -> None:
         record, result = classify_with_meta(text)
     except ValueError as exc:  # empty or over-long — nothing was spent
         raise SystemExit(str(exc)) from exc
+    except SchemaRetryError as exc:
+        # The validation detail is kept off the exception's message because
+        # the adapters must never show it. Here the text is your own and you
+        # are debugging, so it goes to stderr — this is the one place it should.
+        raise SystemExit(f"{exc}\n\n{exc.last_error}") from exc
     elapsed = time.perf_counter() - started
 
     print(record.model_dump_json(indent=2))

@@ -288,8 +288,11 @@ def check_spend_cap(cap: float | None = None) -> None:
     """Raise if the cap is already spent. Call BEFORE the model call.
 
     Checking before rather than after means the cap is a ceiling on what has
-    been spent when a call starts, so it can be overshot by at most one call.
-    Checking after would let every concurrent request through.
+    been spent when a classification starts, so a sequential caller can
+    overshoot it by at most one classification — which is up to `max_attempts`
+    billable API calls, not one, because a truncated or invalid reply is
+    retried. Concurrent callers can each pass this check before any of them
+    records spend; see the notes above on what the cap is and is not.
 
     A cap of 0 or less disables the check — that is the local-development
     setting, and it is explicit rather than an absent variable.

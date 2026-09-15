@@ -74,10 +74,24 @@ def usage(
     )
 
 
+def text_block(text: str) -> SimpleNamespace:
+    """One text content block, shaped like the SDK's."""
+    return SimpleNamespace(type="text", text=text)
+
+
 @dataclass
 class FakeMessage:
+    """A raw API message: what messages.create() returns, before any parsing.
+
+    There is deliberately no `parsed_output` field. The first version of this
+    fake had one, and the wrapper read it — which meant the fake handed over
+    an already-validated object at a point where the real SDK would already
+    have raised on a truncated reply. Scripting the TEXT the model sent, and
+    nothing more, keeps the fake on the same side of the boundary as
+    production.
+    """
+
     stop_reason: str | None
-    parsed_output: Any = None
     content: list[Any] = None  # type: ignore[assignment]
     usage: Any = None
 
@@ -89,7 +103,15 @@ class FakeMessage:
 
 
 class FakeClient:
-    """Replays a scripted list of messages, one per call to messages.parse.
+    """Replays a scripted list of messages at the SDK boundary.
+
+    `messages.create` returns the next scripted message raw, as the real one
+    does. `messages.parse` does what the real one does too: it validates every
+    text block against `output_format` BEFORE returning and raises
+    ValidationError when the text does not conform — which is exactly what a
+    reply cut off at max_tokens is. Any code that goes back to calling parse()
+    therefore fails the truncation test, as the production path did until the
+    2026-09-15 review. Emulate the boundary; never bypass it.
 
     It also records the params it was called with, which is how the caching
     test checks that the system prompt really carried a cache_control marker —
@@ -100,9 +122,9 @@ class FakeClient:
     def __init__(self, *responses: FakeMessage) -> None:
         self._responses = list(responses)
         self.calls: list[dict[str, Any]] = []
-        self.messages = SimpleNamespace(parse=self._parse)
+        self.messages = SimpleNamespace(create=self._create, parse=self._parse)
 
-    def _parse(self, **params: Any) -> FakeMessage:
+    def _create(self, **params: Any) -> FakeMessage:
         self.calls.append(params)
         if not self._responses:
             raise AssertionError(
@@ -110,6 +132,17 @@ class FakeClient:
                 "The code under test retried more times than the test expected."
             )
         return self._responses.pop(0)
+
+    def _parse(self, **params: Any) -> FakeMessage:
+        from pydantic import TypeAdapter
+
+        output_format = params.pop("output_format", None)
+        message = self._create(**params)
+        if output_format is not None:
+            for block in message.content:
+                if getattr(block, "type", None) == "text":
+                    TypeAdapter(output_format).validate_json(block.text)  # raises, as the SDK does
+        return message
 
 
 @pytest.fixture

@@ -211,7 +211,7 @@ python -m src.aiact.classify "NavGuard flags anomalous NAV movements overnight."
 ### Tests
 
 ```bash
-pytest                 # 29 offline tests: no key, no network, no money
+pytest                 # 41 offline tests: no key, no network, no money
 pytest -m live         # 4 tests that call the real model; needs a key
 ```
 
@@ -229,20 +229,23 @@ One image, two services, selected by `APP_MODE`.
 gcloud config set project $GOOGLE_CLOUD_PROJECT
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com secretmanager.googleapis.com
 
-# the API key goes in Secret Manager, never in the image and never in an env var
+# the API key is stored in Secret Manager and injected into the container's
+# runtime environment by Cloud Run: never committed, never in the image, never
+# passed as plaintext configuration. The version is pinned (:1, not :latest)
+# so a rotated secret takes effect on a deliberate redeploy, not a restart.
 echo -n "$ANTHROPIC_API_KEY" | gcloud secrets create anthropic-api-key --data-file=-
 
 # the public demo (Streamlit)
 gcloud run deploy aiact-classifier \
   --source . --region europe-west1 --allow-unauthenticated \
-  --set-secrets ANTHROPIC_API_KEY=anthropic-api-key:latest \
+  --set-secrets ANTHROPIC_API_KEY=anthropic-api-key:1 \
   --set-env-vars APP_MODE=ui,SPEND_CAP_USD=5 \
   --max-instances 2 --session-affinity --timeout 300
 
 # the JSON endpoint, same image
 gcloud run deploy aiact-api \
   --source . --region europe-west1 --allow-unauthenticated \
-  --set-secrets ANTHROPIC_API_KEY=anthropic-api-key:latest \
+  --set-secrets ANTHROPIC_API_KEY=anthropic-api-key:1 \
   --set-env-vars APP_MODE=api,SPEND_CAP_USD=5 \
   --max-instances 2
 ```
@@ -288,15 +291,20 @@ record), and Article 4 (AI literacy). Checklist in
 
 ## Data handling
 
-**Nothing entered is stored.** The description is sent to the model to be
-classified and then discarded. Rows live in the browser session's memory and go
-when the tab closes. The cost log records how long a description was, never
-what it said — `toolkit/costlog.log_call` has no parameter that could take the
-text, and a test asserts that it does not grow one. Error responses describe
-the failure without repeating what was sent, which took a fix: the first
-version echoed an over-long paste straight back in the 422 body. Unexpected
-errors log the exception *type* only, not a traceback, because a traceback can
-carry the request that caused it.
+**Nothing entered is persisted.** The description is sent to the model to be
+classified and then discarded. Rows are held transiently in server-side
+session memory for the open browser session — they are not written to disk or
+a database, and they are cleared when the session resets. The cost log records
+how long a description was, never what it said — `toolkit/costlog.log_call` has
+no parameter that could take the text, and a test asserts that it does not grow
+one. Error responses describe the failure without repeating what was sent,
+which took two fixes: the first version echoed an over-long paste straight
+back in the 422 body, and the second returned Pydantic's validation text,
+which quotes the rejected value — and a rejected value can be a field the
+model filled from the description. Both adapters now map every failure to a
+fixed message, and a test pastes a sentinel and asserts it never comes back.
+Unexpected errors log the exception *type* only, not a traceback, because a
+traceback can carry the request that caused it.
 
 Not storing is not the same as not processing, and processing is what GDPR
 turns on. Operating this demo publicly makes me the **controller** and Anthropic
