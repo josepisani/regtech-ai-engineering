@@ -121,9 +121,10 @@ before accepting the tier.
 supply of an AI system for first use to a deployer *or for own use*, with no
 commercial qualifier. The tool is limited-risk — it classifies systems, not
 people — so nothing in Chapter III applies. What does: Article 50(2), hence
-`ai_generated: true` in every record; Article 4, hence the AI-literacy note
-below. Checklist in `notes/day4-publishing-checklist.md`; the tool's own
-verdict on itself is further down.
+`ai_generated: true` in every record the API and the UI return (the CLI prints
+the raw record, so the showcase files do not carry it); Article 4, hence the
+AI-literacy note below. Checklist in `notes/day4-publishing-checklist.md`; the
+tool's own verdict on itself is further down.
 
 **Who checked the code?** The code was written with Claude and reviewed by a
 second frontier model, GPT 5.6, working from a written brief

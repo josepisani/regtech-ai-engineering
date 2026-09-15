@@ -48,7 +48,10 @@ First run, badly framed ("built and operated by an individual" — from a
 ManCo's "our role" seat, that is a third party): `our_role: unclear`,
 `minimal_risk`. My framing, not the tool's fault. Re-run in the first person
 ("we built this and operate it under our own name, free of charge"):
-`provider` / `limited_risk` / Art. 50(2) / confidence high. Correct.
+`provider` / `limited_risk` / Art. 50(2) / confidence high. Correct. Both
+records are kept in `data/showcase/` — `5-the-tool-itself.json` and
+`5b-the-tool-itself-we-framing.json`. 5b is the one the README figure shows;
+5 stays because the framing sensitivity is itself a finding.
 
 One defect survives both runs. The model reaches limited_risk through
 Art. 50(2) (it generates text) but rules *out* 50(1) with an invented
