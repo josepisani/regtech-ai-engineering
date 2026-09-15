@@ -61,8 +61,11 @@ A ruleset change, so it needs the 20-row eval re-run to check for regression
 
 ## External code review — two findings, both real
 
-Hired a reviewer; brief in `notes/day4-code-review-brief.md`. He worked in the
-working tree (not a `review/` branch as asked). What he found:
+The reviewer was a second model — ChatGPT, GPT 5.6 SOL — given the brief in
+`notes/day4-code-review-brief.md` and read access to the repo; the code was
+written with Claude, so this is one model checking another's work, the same
+second-opinion pattern as `notes/gemini-second-opinion-runbook.md`. It worked
+in the working tree (not a `review/` branch as asked). What it found:
 
 **1. The retry loop was unreachable in production.** `call_schema` used
 `messages.parse()`, which validates the reply *inside the SDK* and raises
@@ -94,7 +97,7 @@ codebase pass their text through. Both adapters use it. A sentinel test per
 adapter now asserts nothing pasted ever comes back. The CLI is the one place
 `last_error` is still shown, because there the text is your own.
 
-**Consequences he followed through:** failed attempts are now billed
+**Consequences it followed through:** failed attempts are now billed
 (`Usage` summed over every reply; `StructuredError` carries it; both adapters
 charge the cap before the error leaves — before this, a stream of failing
 requests ran against my key while the cap read zero). And the wording "rows
