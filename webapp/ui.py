@@ -43,7 +43,29 @@ import time
 
 import streamlit as st
 
-from webapp.examples import EXAMPLES
+# --- import path -------------------------------------------------------------
+# `streamlit run webapp/ui.py` puts THIS FILE'S folder on the import path, not
+# the folder you ran the command from. So `webapp`, `src` and `toolkit` are all
+# invisible to a page launched the normal way, and the failure is
+# ModuleNotFoundError before the page renders a single pixel.
+#
+# Putting the repo root on the path first fixes it for every launch method:
+# `streamlit run` from anywhere, `python -m streamlit run`, and the test
+# harness. It has to come BEFORE any project import, which is why it sits above
+# the line below instead of with the other imports at the top.
+#
+# Found on 2026-09-10 by running the app, not by running the tests: the test
+# harness executes this file as an ordinary Python process from the repo root,
+# where the repo root is already on the path, so it could not reproduce the
+# failure. A test that cannot fail teaches nothing.
+import sys
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from webapp.examples import EXAMPLES  # noqa: E402 — must follow the path fix
 
 st.set_page_config(
     page_title="EU AI Act System Inventory Classifier",

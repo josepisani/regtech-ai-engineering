@@ -167,13 +167,22 @@ examples**, so the system prompt is sent as a cached block: written once at a
 
 | | Per call | 20-row eval run |
 |---|---|---|
-| Without caching | ~$0.0095 | $0.19 (measured) |
-| With caching | ~$0.0033 | ~$0.07 (projected) |
+| Without caching | $0.0095 | $0.19 |
+| With caching | $0.0030 | ~$0.060 |
+| | **−68%** | |
 
-The projection is unverified until a real run. `cache_read_input_tokens` in the
-usage is the only proof — a cache marker that is too small or misplaced fails
-**silently**, at full price, with no error anywhere. Check that field before
-believing any figure in this table.
+Both per-call figures are measured, on the same model and the same prompt. The
+uncached column is the mean of a 20-row run on 2026-09-10; the cached column is
+a single call on 2026-09-10 that reported **7,138 input tokens read from cache**
+and a saving of $0.0064 against what those tokens would have cost at full input
+price. The 20-row figure in the second row is that per-call cost multiplied out,
+not a second full run — stated that way rather than dressed up as one.
+
+`cache_read_input_tokens` in the usage is the only proof that caching is working
+at all. A cache breakpoint that is too small, or placed after something that
+varies per call, is accepted and then **silently ignored**: no error, no warning,
+a normal successful response, and full input price on every row. That is why the
+number above is quoted from that field rather than inferred from the bill.
 
 ## Run it locally
 

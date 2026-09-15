@@ -296,3 +296,47 @@ best example in the set the day that gate lands.
 The Anthropic DPA and the transfer terms covering that processing. That is a
 document to accept and file, not code - and it is a precondition for the public
 deploy, not a Day 5 tidy-up.
+
+## Caching verified — 2026-09-10, evening
+
+Ran the UI against the real API. One classification of the FraudLens example:
+
+    claude-haiku-4-5 · 8.593s · attempts 1 · $0.0030
+    7,138 input tokens from cache, saving $0.0064
+
+So the projection above was slightly pessimistic. Measured, per call:
+
+| | Per call | 20 rows |
+|---|---|---|
+| Uncached (mean of the 20-row run) | $0.0095 | $0.19 |
+| Cached | $0.0030 | ~$0.060 |
+
+**−68%.** The 20-row cached figure is the per-call cost multiplied out, not a
+second full run. README says so too rather than implying otherwise.
+
+`cache_read_input_tokens` was non-zero, which is the only thing that proves the
+breakpoint is real. Worth repeating because it is the trap: a marker that is too
+small, or placed after something that varies per call, is accepted and then
+ignored — no error, normal response, full price on every row.
+
+**Watch, do not act:** 8.593s against the Day 2 median of 4.1s. One sample, most
+likely first-call warm-up, and cache reads should be faster rather than slower.
+If it holds near 8s across a batch it needs looking at before any latency figure
+goes in the README. Nothing in the README quotes a latency yet, deliberately.
+
+## Day 3 closed
+
+The "Done when" bar from START-HERE §4 was: runs end-to-end locally and does not
+crash on bad input. Met. Empty, over-long, missing key, upstream failure and
+refusal all produce a message rather than a stack trace, and the offline suite
+covers each.
+
+One defect found after committing: `streamlit run webapp/ui.py` puts the
+script's own folder on `sys.path`, not the folder the command was run from, so
+`webapp`, `src` and `toolkit` were all invisible and the page failed with
+ModuleNotFoundError before rendering. The test harness ran the page as an
+ordinary Python process from the repo root, where the repo root is already on
+the path, so it could not reproduce the failure. Day 1 rule 2 again: a test that
+cannot fail teaches nothing. Fixed by putting the repo root on the path at the
+top of the file, and verified by reproducing Streamlit's path setup rather than
+by running the tests again.
