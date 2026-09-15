@@ -1,0 +1,35 @@
+{
+  "system_name": "ClientDesk",
+  "provider_name": null,
+  "system_purpose": "Answers investor questions about fund documentation, dealing deadlines and NAV publication times by processing queries through a large language model and returning natural language responses.",
+  "act_applies": "applies",
+  "exclusion_ground": "none",
+  "our_role": "provider",
+  "art25_trigger": "none",
+  "risk_tier": "limited_risk",
+  "annex_iii_derogation": "none",
+  "performs_profiling": false,
+  "is_gpai": true,
+  "gpai_note": "Built in-house using a third-party large language model accessed via API, used as supplied.",
+  "legal_basis": [
+    "Article 50(1)"
+  ],
+  "rationale": "This is an in-house build on top of a general-purpose LLM, making us the provider. The system interacts directly with natural persons (investors) through a chat interface, which engages Article 50(1) transparency requirements. No Annex III use case applies: the system provides factual information about fund operations rather than making decisions about individuals, assessing creditworthiness, performing biometric processing, or evaluating personal characteristics. It does not profile investors because it answers questions about published fund facts without inferring or evaluating aspects of the individual user. The interaction and natural language generation trigger Article 50, placing it in limited_risk.",
+  "gaps": [
+    "Does the system ever retain or log individual investor identity or questions for purposes beyond immediate query handling? That could raise personal data questions but would not change the AI Act tier.",
+    "Has a third-party LLM risk assessment been obtained from the model provider, and are any known risks or limitations documented?",
+    "Are responses ever used to personalise fund recommendations or to assess an investor's suitability for specific products? That would engage Annex III 5(c) and change the classification."
+  ],
+  "confidence": "high",
+  "effective_role": "provider",
+  "obligations": [
+    "Art. 4 — take measures to support the development of AI literacy among staff and others operating or using the system on our behalf, proportionate to their technical knowledge, experience, education and training and to the context of use. The Article does not require any specific level of AI literacy to be guaranteed for any individual. Binds providers and deployers. In force since 2 February 2025.",
+    "Art. 50(1) — design and build so that persons are informed they are interacting with an AI system, unless it is obvious.",
+    "Article 50 transparency duties are in force since 2 August 2026.",
+    "Ch. V (Art. 53-55) — obligations fall on the provider of the general-purpose model, not on us as a downstream user. In force since 2 August 2025.",
+    "If we fine-tune a general-purpose model or place it on the market under our own name, we may become its provider and inherit those obligations — confirm before any fine-tuning project starts."
+  ],
+  "classified_at": "2026-09-15",
+  "ruleset_version": "v2-2026-09-02-reg-2024-1689-consolidated-20260727",
+  "input_description": "ClientDesk. A chat assistant on our investor portal that answers questions about fund documentation, dealing deadlines and NAV publication times, drawing on our published prospectuses and factsheets. Investors type questions and it replies in natural language. Built in-house on a third-party large language model accessed through an API."
+}

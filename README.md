@@ -210,7 +210,7 @@ is sent as a cached block. Measured at −68% per call; details in
 ## Run it locally
 
 ```bash
-git clone <repo-url> && cd ai-eng-starter
+git clone https://github.com/josepisani/regtech-ai-engineering.git && cd regtech-ai-engineering
 
 uv venv --python 3.11
 source .venv/bin/activate          # Windows: .venv\Scripts\activate

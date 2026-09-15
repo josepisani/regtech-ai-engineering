@@ -1,0 +1,32 @@
+{
+  "system_name": "Aurora",
+  "provider_name": "Aurora",
+  "system_purpose": "Described only as helping operations teams work smarter and driving efficiency across the middle office; the specific function is not stated.",
+  "act_applies": "applies",
+  "exclusion_ground": "none",
+  "our_role": "deployer",
+  "art25_trigger": "none",
+  "risk_tier": "insufficient_information",
+  "annex_iii_derogation": "none",
+  "performs_profiling": false,
+  "is_gpai": false,
+  "gpai_note": null,
+  "legal_basis": [],
+  "rationale": "This is a commercial procurement of a third-party platform by a firm established in the EU, so the Regulation applies. However, the description states benefits and context rather than the actual function. It does not specify what data the system processes, what decisions it informs, whether outputs affect individuals, or whether it performs any of the high-risk tasks listed in Annex III. ISO 27001 certification and enterprise deployment tell us about information security and market adoption, not AI Act risk. Without knowing the system's task, inputs, outputs, and whether it affects decisions about natural persons, no risk tier can be assigned.",
+  "gaps": [
+    "What specific task does Aurora perform? Please describe it in one sentence: what does it take as input, what does it do, and what does it output?",
+    "Does any output inform a decision about a natural person — an employee, candidate, worker, customer, or investor?",
+    "Does the system perform any of: biometric identification, emotion or sentiment inference, recruitment or candidate screening, worker monitoring, credit or insurance decisions on individuals, or risk assessment of individuals?",
+    "Does it process personal data, and if so whose and which categories?",
+    "Does it use a general-purpose AI model, and if so which one?",
+    "Is the system used to generate synthetic content (text, images, audio, video)?"
+  ],
+  "confidence": "low",
+  "effective_role": "deployer",
+  "obligations": [
+    "Obligations cannot be determined until the gaps in this record are closed. Send the gap questions to the vendor and re-classify on their answer."
+  ],
+  "classified_at": "2026-09-15",
+  "ruleset_version": "v2-2026-09-02-reg-2024-1689-consolidated-20260727",
+  "input_description": "Aurora is an AI-native platform that helps operations teams work smarter. It uses advanced machine learning to surface insights and drive efficiency across the middle office. Enterprise-grade, ISO 27001 certified, deployed by leading asset managers."
+}

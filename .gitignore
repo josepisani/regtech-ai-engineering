@@ -56,3 +56,7 @@ data/*
 # a document about personal data-protection exposure - was found sitting
 # untracked at the repo root, one `git add -A` away from a public repo.
 /Claude outputs/
+
+# Showcase records referenced from the README: the four unseen worked examples
+# and the self-check. Synthetic inputs, model outputs only. Added 2026-09-15 (day4).
+!data/showcase/

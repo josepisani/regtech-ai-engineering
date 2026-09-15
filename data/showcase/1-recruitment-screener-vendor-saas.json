@@ -1,0 +1,40 @@
+{
+  "system_name": "ShortlistPro",
+  "provider_name": "ShortlistPro",
+  "system_purpose": "Scores and ranks job applicants based on CV-to-role fit for first-round recruitment screening.",
+  "act_applies": "applies",
+  "exclusion_ground": "none",
+  "our_role": "deployer",
+  "art25_trigger": "none",
+  "risk_tier": "high_risk",
+  "annex_iii_derogation": "none",
+  "performs_profiling": true,
+  "is_gpai": false,
+  "gpai_note": null,
+  "legal_basis": [
+    "Annex III 4(a)"
+  ],
+  "rationale": "The system is used to evaluate and rank job applicants at first-round screening, which is the Annex III point 4(a) use case: recruitment and candidate evaluation. It produces a numerical score and ranking for each individual applicant, which constitutes automated evaluation of their suitability and characteristics — profiling of natural persons. We procure it as a third-party SaaS used as supplied, so we are the deployer and no Article 25 escalation applies. The system scores individuals and materially influences the hiring manager's decision by presenting a ranked shortlist, so no Article 6(3) derogation limb applies: it is neither a narrow procedural task (it makes the evaluation), nor merely preparatory (it produces the evaluation), nor an improvement on a completed human activity (the hiring decision process has not been completed when this runs). Profiling of natural persons in an Annex III 4(a) context is always high-risk.",
+  "gaps": [
+    "Does the vendor supply a declaration of conformity and instructions for use addressing the Annex III requirements?",
+    "Are applicant scores and rankings logged and retained, and for how long?",
+    "Has the vendor documented any Article 6(3) assessment or conducted any bias or accuracy testing?"
+  ],
+  "confidence": "high",
+  "effective_role": "deployer",
+  "obligations": [
+    "Art. 4 — take measures to support the development of AI literacy among staff and others operating or using the system on our behalf, proportionate to their technical knowledge, experience, education and training and to the context of use. The Article does not require any specific level of AI literacy to be guaranteed for any individual. Binds providers and deployers. In force since 2 February 2025.",
+    "Art. 26(1) — use the system in accordance with the provider's instructions for use.",
+    "Art. 26(2) — assign human oversight to natural persons with the necessary competence, training and authority.",
+    "Art. 26(4) — ensure input data is relevant and sufficiently representative for the intended purpose, to the extent we control the input data.",
+    "Art. 26(5) — monitor operation; suspend use and inform the provider and the market surveillance authority where a risk or serious incident arises.",
+    "Art. 26(6) — keep the automatically generated logs for at least six months.",
+    "Art. 26(7) — inform workers' representatives and affected workers before putting the system into service in the workplace.",
+    "Art. 26(11) — inform natural persons that they are subject to a decision taken with the system.",
+    "Art. 27 — carry out a fundamental rights impact assessment if we are a public body, a private entity providing public services, or we use the system for creditworthiness assessment or life/health insurance pricing.",
+    "Applies from 2 December 2027 for Annex III systems (deferred by the Digital Omnibus from 2 August 2026). Preparation is a 2027 project; it is not a reason to defer the inventory."
+  ],
+  "classified_at": "2026-09-15",
+  "ruleset_version": "v2-2026-09-02-reg-2024-1689-consolidated-20260727",
+  "input_description": "ShortlistPro. Reads each applicant's CV against the role description and scores them from 1 to 100 on fit, then ranks the applicants so the hiring manager can start at the top. Used for first-round screening on all operations roles. Vendor-hosted in Frankfurt, used as supplied."
+}

@@ -1,0 +1,37 @@
+{
+  "system_name": "EU AI Act System Inventory & Vendor AI Classifier",
+  "provider_name": null,
+  "system_purpose": "A web tool that accepts unstructured descriptions of AI systems from EU members of the public and returns structured classification outputs using a large language model, including risk tier, obligations, and follow-up questions.",
+  "act_applies": "applies",
+  "exclusion_ground": "none",
+  "our_role": "provider",
+  "art25_trigger": "none",
+  "risk_tier": "limited_risk",
+  "annex_iii_derogation": "none",
+  "performs_profiling": false,
+  "is_gpai": true,
+  "gpai_note": "Uses Anthropic Claude large language model hosted in the US, as supplied.",
+  "legal_basis": [
+    "Article 50(2)"
+  ],
+  "rationale": "This is a web application built in-house and operated under the provider's own name, making the provider status clear from the outset. The system generates synthetic text output (classification rationales, legal reasoning, and follow-up questions) on the basis of a user-supplied input, which engages Article 50(2) transparency obligations. The system does not perform biometric identification, emotion recognition, or interact directly with natural persons in a manner that materially affects them (it provides advisory text about other systems, not decisions about users themselves). It makes no decisions about natural persons. The output is marked as machine-generated, which satisfies Article 50(2)(a). The presence of a general-purpose AI model (Claude) as the underlying engine means is_gpai is true, but this does not elevate the risk tier: the system remains limited_risk under Article 50(2).",
+  "gaps": [
+    "Does the system store user inputs, outputs, or logs of queries, and for how long?",
+    "Is there a human review stage before outputs are returned to the user, or is the Claude response sent directly?",
+    "How is the system's accuracy monitored, and what recourse does a user have if they believe an output is incorrect?",
+    "Does the system ever store or use user data to improve Claude's performance, or is each query isolated?",
+    "Are usage patterns or statistics tracked in a way that could identify repeat users?"
+  ],
+  "confidence": "high",
+  "effective_role": "provider",
+  "obligations": [
+    "Art. 4 — take measures to support the development of AI literacy among staff and others operating or using the system on our behalf, proportionate to their technical knowledge, experience, education and training and to the context of use. The Article does not require any specific level of AI literacy to be guaranteed for any individual. Binds providers and deployers. In force since 2 February 2025.",
+    "Art. 50(2) — mark synthetic audio, image, video or text output in a machine-readable format detectable as artificially generated. Grace period to 2 December 2026 for systems already on the market before 2 August 2026.",
+    "Article 50 transparency duties are in force since 2 August 2026.",
+    "Ch. V (Art. 53-55) — obligations fall on the provider of the general-purpose model, not on us as a downstream user. In force since 2 August 2025.",
+    "If we fine-tune a general-purpose model or place it on the market under our own name, we may become its provider and inherit those obligations — confirm before any fine-tuning project starts."
+  ],
+  "classified_at": "2026-09-15",
+  "ruleset_version": "v2-2026-09-02-reg-2024-1689-consolidated-20260727",
+  "input_description": "EU AI Act System Inventory & Vendor AI Classifier. We built this web tool and we operate it under our own name, free of charge, for anyone in the EU to use. A member of the public pastes an unstructured description of an AI vendor or system; the tool sends it to a large language model (Anthropic Claude, hosted in the US, used as supplied) and replies to the person with a structured inventory row: whether the Act applies, their role, the risk tier, obligations, legal basis, and questions still to ask the vendor. The rationale and the questions are text written by the model. It classifies systems, not people; it makes no decisions about natural persons. Outputs are marked as machine-generated."
+}

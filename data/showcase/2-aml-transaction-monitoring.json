@@ -1,0 +1,33 @@
+{
+  "system_name": "FraudLens",
+  "provider_name": "FraudLens",
+  "system_purpose": "Scores investor transaction patterns for money-laundering and payment fraud typologies and raises alerts to the financial crime team for human investigation.",
+  "act_applies": "applies",
+  "exclusion_ground": "none",
+  "our_role": "deployer",
+  "art25_trigger": "none",
+  "risk_tier": "minimal_risk",
+  "annex_iii_derogation": "none",
+  "performs_profiling": true,
+  "is_gpai": false,
+  "gpai_note": null,
+  "legal_basis": [
+    "Annex III 5(b)"
+  ],
+  "rationale": "The system's purpose is detection of money-laundering and payment fraud, which is explicitly carved out from Annex III point 5(b) (creditworthiness assessment and credit scoring of natural persons). The Annex III entry states: 'with the exception of AI systems used for the purpose of detecting financial fraud.' This system falls within that exception and is therefore not a high-risk Annex III system. The carve-out is written into the Annex entry itself, so this is not an Article 6(3) derogation and no Article 6(4) documentation duty arises. Although the system does profile natural persons (scoring transaction patterns), profiling only forces the high-risk outcome for systems that are within Annex III in the first place. Since this system is outside Annex III due to the fraud exception, the profiling override does not apply.",
+  "gaps": [
+    "Is any output of this system ever used to assess or price credit products for investors, rather than solely for fraud detection? That would take it outside the fraud exception and into Annex III 5(b).",
+    "Does the system ever automatically block, freeze or restrict a transaction without human review, or only alert for analyst investigation?"
+  ],
+  "confidence": "high",
+  "effective_role": "deployer",
+  "obligations": [
+    "Art. 4 — take measures to support the development of AI literacy among staff and others operating or using the system on our behalf, proportionate to their technical knowledge, experience, education and training and to the context of use. The Article does not require any specific level of AI literacy to be guaranteed for any individual. Binds providers and deployers. In force since 2 February 2025.",
+    "No mandatory obligations under the AI Act at this tier, beyond any AI literacy duty listed above.",
+    "Art. 95 — voluntary codes of conduct may be applied.",
+    "Record the system in the inventory anyway: tiering is a point-in-time judgement and a change of use can change the tier."
+  ],
+  "classified_at": "2026-09-15",
+  "ruleset_version": "v2-2026-09-02-reg-2024-1689-consolidated-20260727",
+  "input_description": "FraudLens. Monitors investor subscription and redemption activity and scores each investor's transaction pattern against typologies for money laundering and payment fraud, raising alerts to the financial crime team for investigation. Alerts are reviewed by an analyst before any action is taken. Vendor-hosted, used as supplied."
+}
