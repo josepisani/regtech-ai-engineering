@@ -138,7 +138,9 @@ def test_the_real_sdk_hands_back_a_truncated_reply_raw(verdict_dict):
     refuses a plain `httpx.Client`, and the mock transport must come from the
     same package.
     """
-    import httpx2 as httpx
+    httpx = pytest.importorskip(
+        "httpx2", reason="anthropic no longer vendors httpx as httpx2; re-point this test"
+    )
     from anthropic import Anthropic
 
     good = ModelVerdict.model_validate(verdict_dict)
