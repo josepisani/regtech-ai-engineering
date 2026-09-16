@@ -81,3 +81,18 @@ file and briefly un-ignored `.env`. The rules that would have prevented it:
 - **Extra care near anything holding secrets** — `.gitignore`, `.env.example`,
   deploy config. After touching them, re-check the protection still works:
   `git check-ignore -v .env` must print a matching rule.
+
+  ## Read-back before commit (added 2026-09-16, Day 5)
+
+Day 5's read-back showed the gap: `structured.py` was approved on Day 4 and
+its retry loop could not be explained the next morning. So, for any commit
+that touches `toolkit/` or `src/aiact/`:
+
+- Before the commit, Claude asks the user five questions about the changed
+  code — who sets which value, what runs on which branch, why one approach
+  over the other — and the user answers in their own words. Wrong answers
+  are corrected against the code, not against the explanation.
+- The commit waits until the answers are right. A commit the user cannot
+  explain is a commit that is not ready.
+- Prefer y/n and one-line answers when the user is tired; prefer "say it
+  back as to an interviewer" when they are not.
