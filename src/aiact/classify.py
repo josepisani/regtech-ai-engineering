@@ -27,6 +27,7 @@ DESIGN NOTE — one call, not three
 from __future__ import annotations
 
 import sys
+import json
 
 from anthropic import Anthropic
 from dotenv import load_dotenv
@@ -392,7 +393,9 @@ def main() -> None:
         raise SystemExit(f"{exc}\n\n{exc.last_error}") from exc
     elapsed = time.perf_counter() - started
 
-    print(record.model_dump_json(indent=2))
+    # Article 50(2): the CLI record carries ai_generated like the API and the
+    # UI export do, so all three adapters agree. First key, as in main.py.
+    print(json.dumps({"ai_generated": True, **record.model_dump(mode="json")}, indent=2))
     # stderr, so `python -m src.aiact.classify ... > row.json` still writes
     # clean JSON to the file while you watch the cost in the terminal.
     print(
