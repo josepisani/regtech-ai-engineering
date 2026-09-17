@@ -62,3 +62,9 @@ data/*
 !data/showcase/
 
 .codex/
+
+# Project 2 corpus (day6): public regulatory texts exactly as downloaded, so
+# the chunker runs offline on either machine. chunks.jsonl is derived; rebuild
+# it with `python -m toolkit.chunking`.
+!data/corpus/
+data/corpus/chunks.jsonl
