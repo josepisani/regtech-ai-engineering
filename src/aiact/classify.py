@@ -259,6 +259,7 @@ Rules for the answer:
 - Classify only what the description supports. Where a fact is missing, put it in gaps as a question to the vendor rather than assuming it.
 - Cite in legal_basis only the provisions the description actually supports, including a provision relied on to EXCLUDE the system (an Annex III point subject to a carve-out, or an Article 6(3) limb). An empty list is better than a plausible citation you cannot justify from the text.
 - Prefer insufficient_information over a guess. An honest gap list is more useful to a compliance officer than a confident tier that cannot be defended.
+- Article 3(1) first. If the description does not state, or clearly imply, that the system learns from data, predicts, infers or generates content — a rules engine, threshold monitor, reconciliation or reporting tool described only by its features is NOT established as an AI system — then set act_applies to "unclear", risk_tier to "insufficient_information" and confidence to "low", and make the first gap the question whether the product uses any machine-learned model at all. Do not assess the risk of a system whose existence as an AI system the text has not established.
 - is_gpai is an independent flag. A general-purpose model can sit under a minimal-risk or a high-risk system.
 
 Worked examples:
