@@ -35,6 +35,10 @@ measurement of correctness.
 | confidence | 8/20 |
 | legal_basis | 5/10 scored |
 
+> Superseded on Day 5: 16/21 on the tier and 15/21 on act_applies after the
+> Article 3(1) prompt rule, on 21 rows. The table above is the Day 3 record and
+> stays as measured. See `day5-article-3-1-gate.md`.
+
 145,260 input / 9,395 output tokens, 200 s. **$0.19** at the Day 1 prices
 ($1 / $5 per MTok). ~7.2k input per call of which the description is ~300:
 **94% of input is the fixed system prompt and examples** — that is the prompt

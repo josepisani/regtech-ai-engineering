@@ -137,7 +137,7 @@ nothing imports.
 
 | Issue | Status |
 |---|---|
-| Tier accuracy is 13/20 on the labelled set; six named error patterns; the largest is a missing schema field for Art. 3(1) "is this an AI system at all" | Known, documented in README and `notes/day3.md`; fix scheduled |
+| Tier accuracy was 13/20 on the 20-row set, 16/21 after the Day 5 prompt rule on 21 rows; six named error patterns; the largest is a missing schema field for Art. 3(1) "is this an AI system at all", which three rows still need | Known, documented in README, `notes/day3.md` and `notes/day5-article-3-1-gate.md`; schema field scheduled |
 | Model invents a "materially affects" qualifier when ruling out Art. 50(1) (still reaches the right tier via 50(2)) | Found 2026-09-15; likely leakage from the InterviewScribe few-shot; not yet fixed |
 | Latency 6–10 s per call at ~7.2k input tokens | Measured, not yet investigated |
 | Spend cap is per process/instance | Known; deploy will use `--max-instances` |

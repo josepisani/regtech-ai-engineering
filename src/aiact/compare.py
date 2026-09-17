@@ -11,7 +11,7 @@ WHY IT EXISTS
     printed here are Day 3's edge cases and the Week 3 error-analysis seed.
 
 HOW TO USE IT
-    python -m src.aiact.compare            # 20 API calls; writes predictions
+    python -m src.aiact.compare            # one API call per row; writes predictions
     python -m src.aiact.compare --cached   # re-diff the last run, no calls
 
 SCORING RULES

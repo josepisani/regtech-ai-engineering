@@ -114,11 +114,11 @@ turns whoever operates it into a GDPR controller for whatever strangers
 paste. Neither buys anything a figure cannot show. The Dockerfile and deploy
 commands are below for a private demo; the public face is this page.
 
-**What happens when it is wrong?** It is wrong about one tier in three on
+**What happens when it is wrong?** It is wrong about one tier in four on
 the labelled set (next section), in patterns that are named: it under-uses
 `insufficient_information`, and it drifts toward `high_risk` around
 financial-services language. Its own confidence field is poorly calibrated
-(8/20). Every row is a first draft for a human reviewer; read the rationale
+(11/21). Every row is a first draft for a human reviewer; read the rationale
 before accepting the tier.
 
 **Who is the provider of this tool?** I am. *Putting into service* is the
@@ -142,19 +142,26 @@ names rather than adjectives.
 
 ![Agreement with hand-labelled ground truth](docs/figures/08-accuracy.png)
 
-Ground truth is a hand-labelled set of 20 vendor descriptions
+Ground truth is a hand-labelled set of 21 vendor descriptions
 (`data/labels.jsonl`), reviewed against the consolidated Act and the
 Commission's own FAQ, with 86 per-cell review comments recorded. **I am the
 labeller** — a CFA charterholder and Deputy Head of Risk at a CSSF-regulated
 ManCo. Nothing else was going to measure correctness on this.
 
-**13/20 on the tier is not a good number, and it is the honest one.** The
+**16/21 on the tier is not a good number, and it is the honest one.** The
 useful part is that error analysis turned twenty errors into six named
 patterns, one of which accounts for six of them: the schema has no field for
 Article 3(1), so when the real question is *"is this an AI system at all?"* the
 model has nowhere to put that doubt and assesses the risk of a
 threshold-matching reconciliation engine instead — confidently. Full analysis
 in `notes/day3.md`.
+
+On Day 5 one prompt rule — check Article 3(1) before anything else — took
+the tier from 14/21 to 16/21, stable across two runs. It fixed the
+feature-list texts. The three rows it did not fix describe decisions about
+people without saying whether any AI is involved; those need a schema field,
+not a better prompt. The run and its noise band are in
+`notes/day5-article-3-1-gate.md`.
 
 That is what a portfolio project should show: a measured number, a diagnosis,
 and a fix with a cost attached — not a demo that works on the five inputs it
@@ -324,7 +331,7 @@ terms. Two consequences that are handled rather than hoped away:
 ## AI literacy (Article 4)
 
 This tool uses a large language model to read the description. It is wrong
-about 1 tier in 3 on the current test set, and it is wrong in patterns worth
+about 1 tier in 4 on the current test set, and it is wrong in patterns worth
 knowing: it under-uses `insufficient_information`, and it drifts toward
 `high_risk` around financial-services language, because that language is full
 of risk, regulation and client money while Annex III is a specific list of uses
