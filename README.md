@@ -11,6 +11,10 @@ wrong; nobody but me runs the model. Ask, and I will run it in front of you.
 
 *I automate the regulatory work I spent eight years doing by hand.*
 
+A personal project, built on my own time and equipment. No employer data,
+systems or documents were used; every description in this repository is
+invented or public.
+
 ---
 
 ## The problem

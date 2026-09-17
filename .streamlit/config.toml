@@ -1,0 +1,23 @@
+# Streamlit theme — the same identity as the README figures.
+# Values come from the "Jose Pisani" design system (light theme):
+#   surface-0 #f6f4ef · surface-1 #ffffff · ink #14213d · accent #9e4d19 · border-strong #7a8296
+# Streamlit reads this file from the repo root at launch; nothing else changes.
+
+[theme]
+base = "light"
+primaryColor = "#9e4d19"             # accent: the Classify button, radio dot, focus ring, links
+backgroundColor = "#f6f4ef"          # surface-0: page ground
+secondaryBackgroundColor = "#ffffff" # surface-1: sidebar, inputs, expanders
+textColor = "#14213d"                # ink
+font = "sans-serif"                  # Streamlit's Source Sans — the figures' body face
+codeFont = "monospace"
+
+# The keys below need Streamlit >= 1.46 (older versions ignore them with a warning).
+baseRadius = "4px"                   # radius-md: buttons and cards
+borderColor = "#7a8296"              # border-strong: 3:1 on every surface
+showWidgetBorder = true
+codeBackgroundColor = "#ebe8e0"      # surface-2
+linkColor = "#9e4d19"                # accent
+
+[browser]
+gatherUsageStats = false

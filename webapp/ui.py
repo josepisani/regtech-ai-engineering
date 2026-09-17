@@ -77,12 +77,15 @@ st.set_page_config(
 
 API_URL = os.getenv("CLASSIFY_API_URL", "").strip()
 
+# Tier chips use the design system's status colours (light theme), white text on
+# each: negative, warning, brand, positive, ink-muted. Every pair is 6.5:1 or
+# better, and the word carries the meaning — the colour only confirms it.
 TIER_STYLE = {
-    "prohibited": ("Prohibited", "#7f1d1d"),
-    "high_risk": ("High risk", "#b45309"),
-    "limited_risk": ("Limited risk", "#0369a1"),
-    "minimal_risk": ("Minimal risk", "#15803d"),
-    "insufficient_information": ("Insufficient information", "#4b5563"),
+    "prohibited": ("Prohibited", "#a12a2a"),
+    "high_risk": ("High risk", "#7d5300"),
+    "limited_risk": ("Limited risk", "#1b2a4a"),
+    "minimal_risk": ("Minimal risk", "#1f6b3a"),
+    "insufficient_information": ("Insufficient information", "#4f586b"),
 }
 
 DISCLAIMER = (
@@ -166,10 +169,10 @@ def run_classification(description: str) -> tuple[dict, dict]:
 
 
 def render_row(record: dict, cost: dict) -> None:
-    label, colour = TIER_STYLE.get(record["risk_tier"], (record["risk_tier"], "#4b5563"))
+    label, colour = TIER_STYLE.get(record["risk_tier"], (record["risk_tier"], "#4f586b"))
 
     st.markdown(
-        f"<div style='display:inline-block;padding:.35rem .8rem;border-radius:.4rem;"
+        f"<div style='display:inline-block;padding:.35rem .8rem;border-radius:2px;"
         f"background:{colour};color:#fff;font-weight:600;font-size:1.05rem'>{label}</div>",
         unsafe_allow_html=True,
     )
@@ -261,9 +264,10 @@ st.caption(
 with st.sidebar:
     st.markdown("### About")
     st.markdown(
-        "Built for a Luxembourg management company building its AI system "
+        "A personal project, built on my own time. It addresses the problem a "
+        "Luxembourg management company faces when building its AI system "
         "inventory under Regulation (EU) 2024/1689, as consolidated on "
-        "27 July 2026."
+        "27 July 2026. No employer data was used."
     )
     st.markdown("### How it differs")
     st.markdown(

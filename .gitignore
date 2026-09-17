@@ -60,3 +60,5 @@ data/*
 # Showcase records referenced from the README: the four unseen worked examples
 # and the self-check. Synthetic inputs, model outputs only. Added 2026-09-15 (day4).
 !data/showcase/
+
+.codex/
