@@ -42,6 +42,7 @@ That is the "done when" for Part 1.
 | aifmd-consolidated.xhtml | Directive 2011/61/EU consolidated 2026-04-16 (includes 2024/927) | CELEX 02011L0061-20260416 |
 | sfdr.xhtml | Regulation (EU) 2019/2088 consolidated 2024-01-09 | CELEX 02019R2088-20240109 |
 | cssf-18-698.pdf | Circular CSSF 18/698, English | cssf.lu |
+| esma-csa-compliance-internal-audit-2026.pdf | ESMA Final Report on the 2025 CSA on compliance and internal audit functions of UCITS ManCos and AIFMs (ESMA34-1436284137-2305, 11 May 2026) | esma.europa.eu |
 
 How they were fetched: EUR-Lex answers a plain HTTP fetch with a JavaScript bot
 challenge (HTTP 202, empty body), so the files come from the Publications
@@ -56,9 +57,12 @@ Two decisions:
 - "Key RTS" under DORA = the three ICT-risk delegated regulations above. A
   choice, not a given; change the manifest if the plan means others.
 
-Still missing: **ESMA CSA**. The plan names it without a document; the CSAs
-are a series (sustainability risks, valuation, MiFID II costs, ...). Needs the
-exact one before it can be fetched.
+**ESMA CSA** (2026-09-22): the plan names the series, not a document. Chosen:
+the Final Report on the 2025 CSA on compliance and internal audit functions,
+published 11 May 2026 — the most recent, and the one addressed to ManCos and
+AIFMs under AIFMD/UCITS. The runner-up was the 2023-2024 CSA on sustainability
+risks and SFDR disclosures (ESMA34-1592494965-764, 30 June 2025), which pairs
+with SFDR; it is one line in the manifest away if the plan meant that one.
 
 ## Part 3 — chunking by structure (`toolkit/chunking.py`)
 
@@ -66,11 +70,13 @@ Units, as a lawyer would cite them: article paragraph `DORA Article 5(2)`;
 whole article when unnumbered; definition or list point `AI Act Article 3,
 point (1)` and `AI Act Article 5(1), point (a)` when the list is long; recital;
 annex point `AI Act Annex III, point 4` when an annex is a single numbered run;
-CSSF numbered point with its Part > Chapter > Section path; CSSF annex whole.
+CSSF numbered point with its Part > Chapter > Section path; CSSF annex whole;
+ESMA numbered paragraph `ESMA CSA 2025 para 18` under its section; ESMA annex whole.
 
-Result: 2,707 chunks, median 340 characters. Per document: AI Act 732, DORA
-488, RTS 1774/1772/1773 177/46/42, AIFMD 511, SFDR 87, CSSF 624. No duplicate
-ids, nothing under 40 characters, no consolidation markers (►M1 ◄ ▼B) left in.
+Result: 2,775 chunks, median ~350 characters. Per document: AI Act 732, DORA
+488, RTS 1774/1772/1773 177/46/42, AIFMD 511, SFDR 87, CSSF 624, ESMA 68. No
+duplicate ids, nothing under 40 characters, no consolidation markers (►M1 ◄
+▼B) left in, no footnote residue.
 
 Things the run taught, each now a rule in the code:
 - Two markup dialects: Official Journal originals (`oj-ti-art`, paragraphs as
@@ -79,6 +85,14 @@ Things the run taught, each now a rule in the code:
   tries each.
 - Consolidation markers sit inside `<a>` tags and `p.modref` notes; both are
   removed before any text is read.
+- Footnote links too: OJ texts write them as `<a>(29)</a>`, consolidated texts
+  as `(<a>29</a>)`. 248 DORA-family chunks carried "( 29 )" inline until the
+  anchors were dropped and the empty parentheses closed up.
+- ESMA reports number paragraphs 1..67 and sections 1..7 in the same "N."
+  style. Two counters tell them apart: a short title-case line whose number
+  is the next section is a heading; a line whose number is the next paragraph
+  is a paragraph. Chart axis ticks (lines of bare digits) and "Table N"
+  captions are dropped; the tables were images.
 - Annex II of the AI Act is a dash list (offences); AIFMD Annex I is lettered;
   AI Act Annex VIII restarts numbering per section. Splitting on those gave
   fragments and duplicate ids. Rule: split an annex only on one run 1..k.
@@ -93,7 +107,19 @@ Things the run taught, each now a rule in the code:
 
 Known limits, left as is: CSSF point 1 is the circular's whole definitions
 list (10k characters) because its entries are "1)" not "1."; pypdf splits a
-few words ("othe rs", "10- 4"); the three CSSF annexes are one chunk each.
+few words ("othe rs", "10- 4"); the three CSSF annexes are one chunk each;
+the ESMA annex (a two-column good/poor-practice table) is one chunk; a few
+ESMA page-bottom footnotes ride along inside the paragraph they interrupt;
+consolidated texts carry no recitals, so the AI Act, AIFMD and SFDR have none.
+
+By-eye check (2026-09-22): an audit over all 2,775 chunks for lowercase
+starts, missing end punctuation, leaked "Article N" labels, footnote tokens,
+duplicates and size extremes, then twelve complete chunks read in full — one
+of each unit type, including AIFMD Article 20(1) on delegation and CSSF point
+516. Every boundary landed on the structure. The remaining flags are true
+positives that are fine: recitals that end in a comma because the Act's
+recitals are one sentence, and text that legitimately begins "Article 18 of
+Regulation ...".
 `chunks.jsonl` is derived and git-ignored; `python -m toolkit.chunking`
 rebuilds it in about 20 s and prints the eyeball sample.
 

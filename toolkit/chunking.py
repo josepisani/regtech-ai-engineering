@@ -15,6 +15,9 @@ WHAT IT DOES
         CSSF circular (PDF, no markup):
             numbered point, with its heading path   -> "CSSF 18/698 point 188"
             annex, whole                            -> "CSSF 18/698 Annex 1"
+        ESMA report (PDF, no markup):
+            numbered paragraph, with its section    -> "ESMA CSA 2025 para 18"
+            annex, whole                            -> "ESMA CSA 2025 Annex"
 
     `chunk_corpus()` runs the whole MANIFEST and returns every chunk;
     `python -m toolkit.chunking` writes data/corpus/chunks.jsonl and prints
@@ -32,8 +35,9 @@ WHY IT EXISTS
     The structure is not guessed from the text. The Publications Office marks
     every article as <div id="art_N"> and every numbered paragraph inside it;
     the two markup dialects it uses (Official Journal originals and
-    consolidated texts) are both handled below. The CSSF circular has no
-    markup, so its numbered points and headings are recognised by pattern.
+    consolidated texts) are both handled below. The two PDFs have no markup,
+    so their numbered points and headings are recognised by pattern, and a
+    point counts only when its number is the next one expected.
 
 HOW TO CALL IT
     from toolkit.chunking import chunk_corpus, Chunk
@@ -44,6 +48,7 @@ HOW TO CALL IT
     Or one file at a time:
     chunk_eu_act(Path("data/corpus/raw/dora.xhtml"), doc="dora", title="DORA")
     chunk_cssf_circular(Path("data/corpus/raw/cssf-18-698.pdf"), doc="cssf-18-698", title="CSSF 18/698")
+    chunk_esma_report(Path("data/corpus/raw/esma-csa-compliance-internal-audit-2026.pdf"), doc="esma-csa-2025", title="ESMA CSA 2025")
 
 WHAT IT DOES NOT DO
     It does not embed, rank or interpret anything. It never reads the
@@ -62,17 +67,20 @@ from bs4 import BeautifulSoup, Tag
 RAW = Path("data/corpus/raw")
 OUT = Path("data/corpus/chunks.jsonl")
 
-# One line per source file: (file name, short id used in chunk ids, name used
-# in citations). Order is the order chunks come out in.
+# One line per source file: (file name, kind, short id used in chunk ids,
+# name used in citations). Order is the order chunks come out in.
 MANIFEST = [
-    ("eu-ai-act.xhtml", "eu-ai-act", "AI Act"),
-    ("dora.xhtml", "dora", "DORA"),
-    ("dora-rts-ict-risk-management.xhtml", "dora-rts-2024-1774", "DORA RTS 2024/1774"),
-    ("dora-rts-incident-classification.xhtml", "dora-rts-2024-1772", "DORA RTS 2024/1772"),
-    ("dora-rts-ict-third-party-policy.xhtml", "dora-rts-2024-1773", "DORA RTS 2024/1773"),
-    ("aifmd-consolidated.xhtml", "aifmd", "AIFMD"),  # consolidated 2026-04-16, includes AIFMD II
-    ("sfdr.xhtml", "sfdr", "SFDR"),
-    ("cssf-18-698.pdf", "cssf-18-698", "CSSF 18/698"),
+    ("eu-ai-act.xhtml", "eu", "eu-ai-act", "AI Act"),
+    ("dora.xhtml", "eu", "dora", "DORA"),
+    ("dora-rts-ict-risk-management.xhtml", "eu", "dora-rts-2024-1774", "DORA RTS 2024/1774"),
+    ("dora-rts-incident-classification.xhtml", "eu", "dora-rts-2024-1772", "DORA RTS 2024/1772"),
+    ("dora-rts-ict-third-party-policy.xhtml", "eu", "dora-rts-2024-1773", "DORA RTS 2024/1773"),
+    ("aifmd-consolidated.xhtml", "eu", "aifmd", "AIFMD"),  # consolidated 2026-04-16, includes AIFMD II
+    ("sfdr.xhtml", "eu", "sfdr", "SFDR"),
+    ("cssf-18-698.pdf", "cssf", "cssf-18-698", "CSSF 18/698"),
+    # ESMA's 2025 Common Supervisory Action on compliance and internal audit
+    # functions of UCITS ManCos and AIFMs, Final Report of 11 May 2026.
+    ("esma-csa-compliance-internal-audit-2026.pdf", "esma", "esma-csa-2025", "ESMA CSA 2025"),
 ]
 
 # A list is split into point chunks only when it is long enough to be worth
@@ -113,11 +121,14 @@ ANNEX_TITLE = ("title-annex-2",)
 # Consolidated texts flag amended passages with ►M1 ... ◄ and ▼B markers.
 # They are editorial, not law, and they sit inside <a> tags.
 MARKER = re.compile(r"[►▼◄]\s*[A-Z]?\d*")
+FOOTNOTE_REF = re.compile(r"^\(?\s*\d{1,3}\s*\)?$")         # the "(29)" that links to a footnote
 
 
 def _clean(text: str) -> str:
-    """Collapse whitespace and drop consolidation markers."""
-    return re.sub(r"\s+", " ", MARKER.sub("", text)).strip()
+    """Collapse whitespace, drop consolidation markers, close up ' ,' left by removals."""
+    text = re.sub(r"\s+", " ", MARKER.sub("", text)).strip()
+    text = re.sub(r"\(\s*\)", "", text)                  # "( )" left where a footnote link was
+    return re.sub(r"\s+([,.;:)])", r"\1", text)
 
 
 def _first_text(node: Tag, classes: tuple[str, ...]) -> str:
@@ -129,11 +140,12 @@ def _first_text(node: Tag, classes: tuple[str, ...]) -> str:
 
 
 def _strip_editorial(soup: BeautifulSoup) -> None:
-    """Remove amendment references so they never land in a chunk."""
+    """Remove what is not the text of the law: amendment notes and footnote links."""
     for p in soup.find_all("p", class_="modref"):
         p.extract()
     for a in soup.find_all("a"):
-        if MARKER.fullmatch(a.get_text(strip=True) or "-"):
+        label = a.get_text(strip=True)
+        if MARKER.fullmatch(label or "-") or FOOTNOTE_REF.fullmatch(label or "-"):
             a.extract()
 
 
@@ -255,40 +267,47 @@ def chunk_eu_act(path: Path, *, doc: str, title: str) -> list[Chunk]:
 
 
 # ---------------------------------------------------------------------------
-# CSSF circular — PDF, structure recognised by pattern
+# PDFs — structure recognised by pattern
 # ---------------------------------------------------------------------------
-PAGE_HEADER = re.compile(r"^\s*Circular CSSF 18/698\s+Page \d+/\d+\s*$")
-LEVELS = ("Part", "Chapter", "Sub-chapter", "Section", "Sub-section")
-HEADING = re.compile(r"^(Part [IVX]+\.|Chapter \d+\.|Sub-chapter \d+(\.\d+)*\.|Section \d+(\.\d+)*\.|Sub-section \d+(\.\d+)*\.)\s*(.*)$")
-POINT = re.compile(r"^(\d{1,3})\.\s+(\S.*)$")            # "188. The permanent risk ..."
-ANNEXES_START = re.compile(r"^\s*ANNEXES\s*$")
-ANNEX = re.compile(r"^ANNEX (\d+):\s*(.*)$")               # "ANNEX 1: The risk management ..."
-TOC_ENTRY = re.compile(r"\.{4,}\s*\d+\s*$")                # "...Chapter 2. Shareholding ........ 12"
+TOC_ENTRY = re.compile(r"\.{4,}\s*\d+\s*$")                # "Chapter 2. Shareholding ........ 12"
+POINT = re.compile(r"^(\d{1,3})\.\s+(\S.*)$")              # "188. The permanent risk ..."
 
 
-def chunk_cssf_circular(path: Path, *, doc: str, title: str) -> list[Chunk]:
-    """One chunk per numbered point, then one per annex section.
+def _pdf_lines(path: Path, *, drop: tuple[re.Pattern, ...]) -> list[str]:
+    """All lines of the PDF after the table of contents, minus the ones to drop.
 
-    Points are numbered 1..N consecutively through the whole circular, so a
-    line is a new point only when its number is the next one expected; that
-    is what keeps "2013 Law" or a footnote from starting a chunk. The table
-    of contents at the front repeats the headings, harmlessly: the heading
-    path is overwritten again when the body reaches them.
+    A table of contents repeats every heading and numbers its own entries
+    "1.", "2.", "3.", which would be taken for points 1-3. Every TOC entry
+    ends in dotted leaders and a page number; the body starts after the last.
     """
     from pypdf import PdfReader  # imported here so the EU path needs no pypdf
 
     lines: list[str] = []
     for page in PdfReader(str(path)).pages:
-        for line in page.extract_text().splitlines():
-            if not PAGE_HEADER.match(line):
-                lines.append(line.strip())
-
-    # The table of contents repeats every heading and numbers its own entries
-    # "1.", "2.", "3.", which would be taken for points 1-3. Every TOC entry
-    # ends in dotted leaders and a page number; the body starts after the last.
+        for raw in page.extract_text().splitlines():
+            line = raw.strip()
+            if not any(d.match(line) for d in drop):
+                lines.append(line)
     toc_end = max((i for i, l in enumerate(lines) if TOC_ENTRY.search(l)), default=-1)
-    lines = lines[toc_end + 1:]
+    return lines[toc_end + 1:]
 
+
+# --- CSSF 18/698 -------------------------------------------------------------
+CSSF_PAGE_HEADER = re.compile(r"^Circular CSSF 18/698\s+Page \d+/\d+$")
+LEVELS = ("Part", "Chapter", "Sub-chapter", "Section", "Sub-section")
+HEADING = re.compile(r"^(Part [IVX]+\.|Chapter \d+\.|Sub-chapter \d+(\.\d+)*\.|Section \d+(\.\d+)*\.|Sub-section \d+(\.\d+)*\.)\s*(.*)$")
+ANNEXES_START = re.compile(r"^ANNEXES$")
+ANNEX = re.compile(r"^ANNEX (\d+):\s*(.*)$")               # "ANNEX 1: The risk management ..."
+
+
+def chunk_cssf_circular(path: Path, *, doc: str, title: str) -> list[Chunk]:
+    """One chunk per numbered point, then one per annex.
+
+    Points are numbered 1..N consecutively through the whole circular, so a
+    line is a new point only when its number is the next one expected; that
+    is what keeps "2013 Law" or a footnote from starting a chunk.
+    """
+    lines = _pdf_lines(path, drop=(CSSF_PAGE_HEADER,))
     chunks: list[Chunk] = []
     path_by_level: dict[str, str] = {}
     current: list[str] | None = None
@@ -346,21 +365,74 @@ def chunk_cssf_circular(path: Path, *, doc: str, title: str) -> list[Chunk]:
     return chunks
 
 
+# --- ESMA final report -------------------------------------------------------
+# Paragraphs are numbered 1..N through the report. Section headings are also
+# "N. Title" but short, title-case and consecutive among themselves, so a
+# second counter tells them apart from paragraphs. Charts leave their axis
+# ticks behind as lines of bare digits, and "Table N" captions have no table
+# (the table was an image); both are dropped.
+ESMA_NOISE = (re.compile(r"^\d+$"), re.compile(r"^Table \d+$"))
+ESMA_HEADING = re.compile(r"^(\d)\.\s+([A-Z][^.]{2,60})$")
+ESMA_ANNEX = re.compile(r"^Annex\b(.*)$")
+
+
+def chunk_esma_report(path: Path, *, doc: str, title: str) -> list[Chunk]:
+    """One chunk per numbered paragraph, with its section as the heading; annex whole."""
+    lines = _pdf_lines(path, drop=ESMA_NOISE)
+    chunks: list[Chunk] = []
+    section = ""
+    current: list[str] | None = None
+    current_id, current_ref = "", ""
+    expected, next_section = 1, 1
+    in_annex = False
+
+    def flush() -> None:
+        if current is not None and current_id:
+            chunks.append(Chunk(f"{doc}:{current_id}", doc, current_ref, section, _clean(" ".join(current))))
+
+    for line in lines:
+        if not in_annex and ESMA_ANNEX.match(line):
+            flush()
+            in_annex, section = True, re.sub(r"(?<=[a-z])\d+$", "", _clean(line))  # drop a glued footnote digit
+            current, current_id, current_ref = [], "annex", f"{title} Annex"
+            continue
+        if in_annex:
+            if line:
+                current.append(line)
+            continue
+        h = ESMA_HEADING.match(line)
+        if h and int(h.group(1)) == next_section:
+            flush(); current = None
+            section = _clean(line)
+            next_section += 1
+            continue
+        p = POINT.match(line)
+        if p and int(p.group(1)) == expected:
+            flush()
+            current, current_id, current_ref = [p.group(2)], f"para_{p.group(1)}", f"{title} para {p.group(1)}"
+            expected += 1
+            continue
+        if current is not None and line:
+            current.append(line)
+    flush()
+    return chunks
+
+
 # ---------------------------------------------------------------------------
 # Corpus
 # ---------------------------------------------------------------------------
+CHUNKERS = {"eu": chunk_eu_act, "cssf": chunk_cssf_circular, "esma": chunk_esma_report}
+
+
 def chunk_corpus(raw: Path = RAW) -> list[Chunk]:
     """Every chunk of every file in MANIFEST, in manifest order."""
     out: list[Chunk] = []
-    for name, doc, title in MANIFEST:
+    for name, kind, doc, title in MANIFEST:
         path = raw / name
         if not path.exists():
             print(f"skip {name}: not downloaded", file=sys.stderr)
             continue
-        if path.suffix == ".pdf":
-            out += chunk_cssf_circular(path, doc=doc, title=title)
-        else:
-            out += chunk_eu_act(path, doc=doc, title=title)
+        out += CHUNKERS[kind](path, doc=doc, title=title)
     return out
 
 
@@ -384,9 +456,10 @@ if __name__ == "__main__":
     wanted = {
         "AI Act Article 6(1)", "AI Act Article 3, point (1)", "AI Act Article 5(1), point (a)",
         "AI Act Annex III, point 4", "AI Act Annex II",
-        "DORA Recital 1", "DORA Article 3, point (1)", "DORA Article 5(2)",
+        "DORA Recital 106", "DORA Article 3, point (1)", "DORA Article 5(2)",
         "SFDR Article 6(1)", "AIFMD Article 4(1), point (a)", "AIFMD Annex I",
         "CSSF 18/698 point 4", "CSSF 18/698 point 188", "CSSF 18/698 Annex 1",
+        "ESMA CSA 2025 para 1", "ESMA CSA 2025 para 18", "ESMA CSA 2025 Annex",
     }
     for c in chunks:
         if c.ref in wanted:
