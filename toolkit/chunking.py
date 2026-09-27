@@ -128,6 +128,7 @@ def _clean(text: str) -> str:
     """Collapse whitespace, drop consolidation markers, close up ' ,' left by removals."""
     text = re.sub(r"\s+", " ", MARKER.sub("", text)).strip()
     text = re.sub(r"\(\s*\)", "", text)                  # "( )" left where a footnote link was
+    text = re.sub(r"\s+", " ", text)                     # "( )" removal leaves a double space
     return re.sub(r"\s+([,.;:)])", r"\1", text)
 
 
