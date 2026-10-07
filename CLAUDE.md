@@ -32,7 +32,7 @@ claude.ai project.
   echo the API key. If `.env` shows up in `git status`, stop and fix
   `.gitignore` first.
 - **No confidential or employer data — ever.** Public or synthetic data only.
-  Nothing resembling a JSSFML document, template, contract, or delegate list.
+  Nothing resembling an employer document, template, contract, or delegate list.
 - **No scratch files in commits.** `scratch_*.py` is deleted before commit.
   Only commit files the project needs.
 - **Scope guard:** each project ships at its "Done when" bar (see START-HERE).
